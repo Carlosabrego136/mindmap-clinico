@@ -1,0 +1,3983 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Faiiryz — Cerebro Digital v3</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#030510">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --neural-blue: #00d4ff;
+      --neural-purple: #7b2fff;
+      --neural-pink: #ff2d78;
+      --neural-green: #00ff9d;
+      --neural-gold: #ffcc00;
+      --bg-dark: #030510;
+      --text-dim: #4a5a8a;
+      --glow-blue: 0 0 20px rgba(0, 212, 255, 0.5);
+      --glow-purple: 0 0 20px rgba(123, 47, 255, 0.5);
+      --glow-green: 0 0 20px rgba(0, 255, 157, 0.5);
+      --glow-pink: 0 0 20px rgba(255, 45, 120, 0.5);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg-dark);
+      font-family: 'Share Tech Mono', monospace;
+      color: #c0d4ff;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ── CANVAS ── */
+    #brain-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #brain-canvas:active {
+      cursor: grabbing;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 212, 255, 0.012) 2px, rgba(0, 212, 255, 0.012) 4px);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* ── HEADER ── */
+    #header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(3, 5, 16, 0.97) 0%, transparent 100%);
+      border-bottom: 1px solid rgba(0, 212, 255, 0.06);
+    }
+
+    .logo {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: 1rem;
+      letter-spacing: 3px;
+      background: linear-gradient(90deg, var(--neural-blue), var(--neural-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 18px;
+      font-size: 0.65rem;
+      letter-spacing: 1px;
+      align-items: center;
+    }
+
+    .stat {
+      color: var(--text-dim);
+    }
+
+    .stat span {
+      color: var(--neural-green);
+      font-weight: bold;
+    }
+
+    #save-indicator {
+      font-size: 0.58rem;
+      color: var(--text-dim);
+    }
+
+    /* ── PANELS ── */
+    #left-panel {
+      position: fixed;
+      top: 58px;
+      left: 0;
+      width: 300px;
+      bottom: 0;
+      z-index: 10;
+      padding: 12px;
+      background: linear-gradient(90deg, rgba(3, 5, 16, 0.97), rgba(3, 5, 16, 0.75));
+      border-right: 1px solid rgba(0, 212, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+      transition: transform 0.35s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    #left-panel.hidden {
+      transform: translateX(-100%);
+    }
+
+    #left-panel::-webkit-scrollbar {
+      width: 2px;
+    }
+
+    #left-panel::-webkit-scrollbar-thumb {
+      background: rgba(0, 212, 255, 0.2);
+      border-radius: 2px;
+    }
+
+    #right-panel {
+      position: fixed;
+      top: 58px;
+      right: 0;
+      width: 340px;
+      bottom: 0;
+      z-index: 10;
+      padding: 12px;
+      background: linear-gradient(270deg, rgba(3, 5, 16, 0.97), rgba(3, 5, 16, 0.75));
+      border-left: 1px solid rgba(123, 47, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.35s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    #right-panel.hidden {
+      transform: translateX(100%);
+    }
+
+    /* ── TOGGLE BUTTONS ── */
+    .panel-toggle {
+      position: fixed;
+      z-index: 20;
+      background: rgba(5, 12, 35, 0.92);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      color: var(--neural-blue);
+      font-size: 1rem;
+      width: 28px;
+      height: 52px;
+      border-radius: 0 8px 8px 0;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    #toggle-left {
+      left: 300px;
+      border-left: none;
+      transition: left 0.35s cubic-bezier(.4, 0, .2, 1), background 0.2s;
+    }
+
+    #left-panel.hidden~#toggle-left,
+    #toggle-left.shifted {
+      left: 0;
+      border-radius: 0 8px 8px 0;
+    }
+
+    #toggle-right {
+      right: 340px;
+      border-right: none;
+      border-radius: 8px 0 0 8px;
+      transition: right 0.35s cubic-bezier(.4, 0, .2, 1), background 0.2s;
+    }
+
+    #toggle-right.shifted {
+      right: 0;
+      border-radius: 8px 0 0 8px;
+    }
+
+    .panel-toggle:hover {
+      background: rgba(0, 212, 255, 0.15);
+      box-shadow: var(--glow-blue);
+    }
+
+    .panel-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      color: var(--neural-blue);
+      text-transform: uppercase;
+      border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+      padding-bottom: 6px;
+    }
+
+    /* ── TABS LEFT ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 2px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: rgba(0, 212, 255, 0.04);
+      border: 1px solid rgba(0, 212, 255, 0.12);
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      padding: 7px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    .tab-btn.active {
+      background: rgba(0, 212, 255, 0.12);
+      border-color: rgba(0, 212, 255, 0.4);
+      color: var(--neural-blue);
+    }
+
+    .tab-content {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    /* ── UPLOAD ── */
+    .upload-zone {
+      border: 1px dashed rgba(0, 212, 255, 0.25);
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(0, 212, 255, 0.02);
+    }
+
+    .upload-zone:hover {
+      border-color: var(--neural-blue);
+      background: rgba(0, 212, 255, 0.05);
+      box-shadow: var(--glow-blue);
+    }
+
+    .upload-zone.drag-over {
+      border-color: var(--neural-green);
+      background: rgba(0, 255, 157, 0.05);
+      box-shadow: var(--glow-green);
+    }
+
+    .upload-icon {
+      font-size: 1.5rem;
+      margin-bottom: 4px;
+    }
+
+    .upload-text {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .upload-types {
+      font-size: 0.68rem;
+      color: rgba(0, 212, 255, 0.4);
+      margin-top: 4px;
+    }
+
+    #file-input {
+      display: none;
+    }
+
+    /* ── URL INPUT ── */
+    .url-wrap {
+      display: flex;
+      gap: 6px;
+    }
+
+    .url-input {
+      flex: 1;
+      background: rgba(0, 212, 255, 0.04);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 5px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem;
+      padding: 8px 10px;
+    }
+
+    .url-input:focus {
+      outline: none;
+      border-color: var(--neural-blue);
+      box-shadow: var(--glow-blue);
+    }
+
+    .url-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .btn-url {
+      background: rgba(0, 212, 255, 0.12);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      color: var(--neural-blue);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.55rem;
+      padding: 7px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .btn-url:hover {
+      background: rgba(0, 212, 255, 0.2);
+      box-shadow: var(--glow-blue);
+    }
+
+    /* ── MIC BUTTON ── */
+    .mic-wrap {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-mic {
+      flex: 1;
+      background: rgba(255, 45, 120, 0.08);
+      border: 1px solid rgba(255, 45, 120, 0.3);
+      color: var(--neural-pink);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.58rem;
+      letter-spacing: 1px;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+    }
+
+    .btn-mic:hover {
+      background: rgba(255, 45, 120, 0.15);
+      box-shadow: var(--glow-pink);
+    }
+
+    .btn-mic.recording {
+      background: rgba(255, 45, 120, 0.25);
+      border-color: var(--neural-pink);
+      animation: mic-pulse 0.8s ease-in-out infinite;
+    }
+
+    @keyframes mic-pulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 8px rgba(255, 45, 120, 0.4);
+      }
+
+      50% {
+        box-shadow: 0 0 24px rgba(255, 45, 120, 0.8);
+      }
+    }
+
+    /* ── SEARCH ── */
+    .search-wrap {
+      display: flex;
+      gap: 6px;
+    }
+
+    .search-input {
+      flex: 1;
+      background: rgba(255, 204, 0, 0.04);
+      border: 1px solid rgba(255, 204, 0, 0.2);
+      border-radius: 5px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      padding: 7px 10px;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--neural-gold);
+      box-shadow: 0 0 12px rgba(255, 204, 0, 0.3);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .search-suggest-pill {
+      font-size: 0.55rem;
+      padding: 3px 9px;
+      border-radius: 12px;
+      background: rgba(255, 204, 0, 0.07);
+      border: 1px solid rgba(255, 204, 0, 0.25);
+      color: var(--neural-gold);
+      cursor: pointer;
+      font-family: 'Share Tech Mono', monospace;
+      transition: all 0.15s;
+    }
+
+    .search-suggest-pill:hover {
+      background: rgba(255, 204, 0, 0.16);
+      border-color: var(--neural-gold);
+    }
+
+    .btn-search {
+      background: rgba(255, 204, 0, 0.1);
+      border: 1px solid rgba(255, 204, 0, 0.3);
+      color: var(--neural-gold);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      padding: 7px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-search:hover {
+      background: rgba(255, 204, 0, 0.18);
+    }
+
+    /* ── TAGS PALETTE ── */
+    .tags-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tag-pill {
+      font-size: 0.58rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      border: 1px solid;
+      transition: all 0.2s;
+      font-family: 'Share Tech Mono', monospace;
+    }
+
+    .tag-pill:hover {
+      transform: scale(1.05);
+    }
+
+    .tag-pill.active {
+      font-weight: bold;
+    }
+
+    .add-tag-wrap {
+      display: flex;
+      gap: 5px;
+      margin-top: 4px;
+    }
+
+    .add-tag-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      padding: 5px 8px;
+    }
+
+    .add-tag-input:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .add-tag-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .btn-add-tag {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #c0d4ff;
+      font-size: 0.7rem;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* ── TEXT MEMORY ── */
+    .memory-textarea {
+      background: rgba(0, 212, 255, 0.04);
+      border: 1px solid rgba(0, 212, 255, 0.18);
+      border-radius: 6px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.82rem;
+      padding: 10px;
+      resize: vertical;
+      min-height: 80px;
+      transition: border-color 0.3s;
+      width: 100%;
+    }
+
+    .memory-textarea:focus {
+      outline: none;
+      border-color: var(--neural-blue);
+      box-shadow: var(--glow-blue);
+    }
+
+    .memory-textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.14), rgba(123, 47, 255, 0.14));
+      border: 1px solid rgba(0, 212, 255, 0.35);
+      color: var(--neural-blue);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.58rem;
+      letter-spacing: 2px;
+      padding: 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-transform: uppercase;
+      width: 100%;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.22), rgba(123, 47, 255, 0.22));
+      box-shadow: var(--glow-blue);
+      transform: translateY(-1px);
+    }
+
+    /* ── MEMORY LIST ── */
+    #memory-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      overflow-y: auto;
+      max-height: 280px;
+    }
+
+    #memory-list::-webkit-scrollbar {
+      width: 2px;
+    }
+
+    #memory-list::-webkit-scrollbar-thumb {
+      background: rgba(0, 212, 255, 0.25);
+      border-radius: 2px;
+    }
+
+    .memory-node-item {
+      background: rgba(0, 212, 255, 0.03);
+      border: 1px solid rgba(0, 212, 255, 0.1);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-size: 0.76rem;
+      color: #8a9bc0;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+    }
+
+    .memory-node-item:hover {
+      border-color: rgba(0, 212, 255, 0.3);
+      color: #c0d4ff;
+      background: rgba(0, 212, 255, 0.07);
+    }
+
+    .memory-node-item.highlighted {
+      border-color: var(--neural-gold) !important;
+      background: rgba(255, 204, 0, 0.08) !important;
+    }
+
+    .memory-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-top: 3px;
+      flex-shrink: 0;
+    }
+
+    .memory-content {
+      flex: 1;
+      line-height: 1.5;
+    }
+
+    .memory-meta {
+      font-size: 0.52rem;
+      color: var(--text-dim);
+      margin-top: 1px;
+    }
+
+    .memory-tag-badge {
+      font-size: 0.52rem;
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin-top: 2px;
+      display: inline-block;
+      border: 1px solid;
+    }
+
+    .btn-del-mem {
+      background: none;
+      border: none;
+      color: rgba(255, 45, 120, 0.4);
+      cursor: pointer;
+      font-size: 0.75rem;
+      padding: 0 2px;
+      flex-shrink: 0;
+    }
+
+    .btn-del-mem:hover {
+      color: var(--neural-pink);
+    }
+
+    /* ── RIGHT: API CONFIG ── */
+    .api-config {
+      background: rgba(255, 45, 120, 0.04);
+      border: 1px solid rgba(255, 45, 120, 0.18);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .api-label {
+      font-size: 0.58rem;
+      color: var(--neural-pink);
+      letter-spacing: 2px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .api-status {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ff4444;
+      animation: pulse-red 2s infinite;
+    }
+
+    .api-status.connected {
+      background: var(--neural-green);
+      animation: pulse-green 2s infinite;
+    }
+
+    @keyframes pulse-red {
+
+      0%,
+      100% {
+        opacity: 1;
+        box-shadow: 0 0 4px #ff4444;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    @keyframes pulse-green {
+
+      0%,
+      100% {
+        opacity: 1;
+        box-shadow: 0 0 8px var(--neural-green);
+      }
+
+      50% {
+        opacity: 0.6;
+      }
+    }
+
+    .api-input {
+      background: rgba(255, 45, 120, 0.05);
+      border: 1px solid rgba(255, 45, 120, 0.22);
+      border-radius: 5px;
+      color: #ffaacc;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      padding: 7px 10px;
+      width: 100%;
+    }
+
+    .api-input:focus {
+      outline: none;
+      border-color: var(--neural-pink);
+      box-shadow: var(--glow-pink);
+    }
+
+    .api-input::placeholder {
+      color: rgba(255, 45, 120, 0.35);
+    }
+
+    .persona-select {
+      background: rgba(0, 212, 255, 0.04);
+      border: 1px solid rgba(0, 212, 255, 0.18);
+      border-radius: 5px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      padding: 6px 10px;
+      width: 100%;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+
+    .persona-select:focus {
+      outline: none;
+    }
+
+    option {
+      background: #030510;
+    }
+
+    .btn-connect {
+      background: linear-gradient(135deg, rgba(255, 45, 120, 0.12), rgba(123, 47, 255, 0.12));
+      border: 1px solid rgba(255, 45, 120, 0.35);
+      color: var(--neural-pink);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.52rem;
+      letter-spacing: 2px;
+      padding: 7px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.3s;
+      width: 100%;
+      margin-top: 5px;
+    }
+
+    .btn-connect:hover {
+      box-shadow: var(--glow-pink);
+      transform: translateY(-1px);
+    }
+
+    /* ── JOURNAL MODAL ── */
+    #journal-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(3, 5, 16, 0.92);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #journal-modal.open {
+      display: flex;
+    }
+
+    .journal-box {
+      background: rgba(5, 12, 35, 0.98);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 12px;
+      padding: 28px;
+      width: 480px;
+      max-width: 90vw;
+      box-shadow: 0 0 40px rgba(0, 212, 255, 0.1);
+    }
+
+    .journal-title {
+      font-family: 'Orbitron', monospace;
+      font-size: 0.85rem;
+      letter-spacing: 3px;
+      color: var(--neural-blue);
+      margin-bottom: 6px;
+    }
+
+    .journal-date {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .journal-textarea {
+      width: 100%;
+      min-height: 160px;
+      background: rgba(0, 212, 255, 0.04);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 8px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      padding: 12px;
+      resize: vertical;
+    }
+
+    .journal-textarea:focus {
+      outline: none;
+      border-color: var(--neural-blue);
+      box-shadow: var(--glow-blue);
+    }
+
+    .journal-textarea::placeholder {
+      color: var(--text-dim);
+    }
+
+    .journal-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .btn-journal-save {
+      flex: 1;
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(123, 47, 255, 0.15));
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      color: var(--neural-blue);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.58rem;
+      letter-spacing: 2px;
+      padding: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-journal-save:hover {
+      box-shadow: var(--glow-blue);
+    }
+
+    .btn-journal-skip {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      padding: 10px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-journal-skip:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #c0d4ff;
+    }
+
+    /* ── SUMMARY MODAL ── */
+    #summary-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      background: rgba(3, 5, 16, 0.92);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #summary-modal.open {
+      display: flex;
+    }
+
+    .summary-box {
+      background: rgba(5, 12, 35, 0.98);
+      border: 1px solid rgba(123, 47, 255, 0.25);
+      border-radius: 12px;
+      padding: 24px;
+      width: 560px;
+      max-width: 92vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 0 40px rgba(123, 47, 255, 0.15);
+    }
+
+    .summary-content {
+      font-size: 0.7rem;
+      line-height: 1.8;
+      color: #c0d4ff;
+      white-space: pre-wrap;
+      margin: 12px 0;
+    }
+
+    .btn-close-modal {
+      background: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem;
+      padding: 7px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-close-modal:hover {
+      border-color: rgba(255, 255, 255, 0.25);
+      color: #c0d4ff;
+    }
+
+    /* ── CHAT ── */
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 6px 4px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 8px;
+    }
+
+    #chat-messages::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    #chat-messages::-webkit-scrollbar-thumb {
+      background: rgba(123, 47, 255, 0.3);
+      border-radius: 2px;
+    }
+
+    .message {
+      max-width: 94%;
+      font-size: 0.85rem;
+      line-height: 1.65;
+      padding: 10px 13px;
+      border-radius: 10px;
+      animation: fadeInUp 0.3s ease;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(6px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(123, 47, 255, 0.35);
+      color: #1a0a30;
+    }
+
+    .message.ai {
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(0, 212, 255, 0.35);
+      color: #0a1a2a;
+    }
+
+    .message.system {
+      align-self: center;
+      background: rgba(0, 255, 157, 0.08);
+      border: 1px solid rgba(0, 255, 157, 0.22);
+      color: rgba(0, 255, 157, 0.9);
+      font-size: 0.75rem;
+      max-width: 100%;
+      text-align: center;
+    }
+
+    .message-label {
+      font-size: 0.65rem;
+      color: #6a7a9a;
+      margin-bottom: 3px;
+      letter-spacing: 1px;
+      font-weight: bold;
+    }
+
+    .thinking {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      padding: 9px 11px;
+    }
+
+    .thinking-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--neural-blue);
+      animation: thinking-bounce 1.4s ease-in-out infinite;
+    }
+
+    .thinking-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .thinking-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes thinking-bounce {
+
+      0%,
+      80%,
+      100% {
+        transform: scale(0.6);
+        opacity: 0.4;
+      }
+
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .chat-input-wrap {
+      display: flex;
+      gap: 7px;
+      align-items: flex-end;
+    }
+
+    .chat-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(123, 47, 255, 0.3);
+      border-radius: 7px;
+      color: #e0eeff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      padding: 10px 12px;
+      resize: none;
+      min-height: 42px;
+      max-height: 110px;
+      transition: border-color 0.3s;
+    }
+
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--neural-purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .chat-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .btn-send {
+      background: linear-gradient(135deg, var(--neural-purple), var(--neural-blue));
+      border: none;
+      border-radius: 7px;
+      color: white;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 0 13px;
+      height: 40px;
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+
+    .btn-send:hover {
+      transform: scale(1.05);
+      box-shadow: var(--glow-purple);
+    }
+
+    .btn-send:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── BOTTOM CONTROLS ── */
+    #bottom-controls {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      transition: transform 0.35s cubic-bezier(.4, 0, .2, 1), opacity 0.35s;
+    }
+
+    #bottom-controls.hidden {
+      transform: translateX(-50%) translateY(calc(100% + 24px));
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #toggle-bottom {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 11;
+      background: rgba(5, 12, 35, 0.92);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      color: var(--neural-blue);
+      font-size: 0.65rem;
+      font-family: 'Share Tech Mono', monospace;
+      letter-spacing: 1px;
+      padding: 4px 14px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: none;
+      transition: all 0.2s;
+    }
+
+    #toggle-bottom:hover {
+      background: rgba(0, 212, 255, 0.12);
+      box-shadow: var(--glow-blue);
+    }
+
+    #toggle-bottom.visible {
+      display: block;
+    }
+
+    .ctrl-btn {
+      background: rgba(5, 12, 35, 0.88);
+      border: 1px solid rgba(0, 212, 255, 0.18);
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+      padding: 6px 13px;
+      border-radius: 18px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .ctrl-btn:hover {
+      border-color: var(--neural-blue);
+      color: var(--neural-blue);
+      box-shadow: var(--glow-blue);
+    }
+
+    .ctrl-btn.active {
+      border-color: var(--neural-green);
+      color: var(--neural-green);
+      background: rgba(0, 255, 157, 0.06);
+    }
+
+    /* ── TOOLTIP ── */
+    #tooltip {
+      position: fixed;
+      z-index: 20;
+      background: rgba(5, 12, 35, 0.96);
+      border: 1px solid rgba(0, 212, 255, 0.25);
+      border-radius: 6px;
+      padding: 7px 11px;
+      font-size: 0.62rem;
+      color: #a0d4ff;
+      pointer-events: none;
+      display: none;
+      max-width: 200px;
+      line-height: 1.5;
+    }
+
+    /* ── LOADING ── */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-dark);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      transition: opacity 0.8s;
+    }
+
+    .loading-brain {
+      font-size: 3.5rem;
+      animation: brain-pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes brain-pulse {
+
+      0%,
+      100% {
+        transform: scale(1);
+        filter: brightness(1);
+      }
+
+      50% {
+        transform: scale(1.1);
+        filter: brightness(1.5) drop-shadow(0 0 20px var(--neural-blue));
+      }
+    }
+
+    .loading-title {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: 1.3rem;
+      letter-spacing: 4px;
+      background: linear-gradient(90deg, var(--neural-blue), var(--neural-purple), var(--neural-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .loading-bar-wrap {
+      width: 280px;
+      height: 2px;
+      background: rgba(0, 212, 255, 0.08);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+
+    .loading-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--neural-blue), var(--neural-purple));
+      width: 0%;
+      transition: width 0.3s;
+      box-shadow: 0 0 8px var(--neural-blue);
+    }
+
+    .loading-text {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+    }
+
+    /* ── CONNECT-MODE cursor ── */
+    body.connect-mode #brain-canvas {
+      cursor: crosshair;
+    }
+
+    /* ══════════════════════════════════════════
+       SUPABASE AUTH MODAL
+    ══════════════════════════════════════════ */
+    #auth-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(3, 5, 16, 0.97);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #auth-modal.hidden {
+      display: none;
+    }
+
+    .auth-box {
+      background: rgba(5, 12, 35, 0.98);
+      border: 1px solid rgba(0, 212, 255, 0.25);
+      border-radius: 16px;
+      padding: 36px;
+      width: 420px;
+      max-width: 92vw;
+      box-shadow: 0 0 60px rgba(0, 212, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .auth-logo {
+      font-family: 'Orbitron', monospace;
+      font-weight: 900;
+      font-size: 1.2rem;
+      letter-spacing: 4px;
+      background: linear-gradient(90deg, var(--neural-blue), var(--neural-purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+
+    .auth-sub {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 6px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      background: rgba(0, 212, 255, 0.05);
+      border: 1px solid rgba(0, 212, 255, 0.15);
+      color: var(--text-dim);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem;
+      padding: 8px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .auth-tab.active {
+      background: rgba(0, 212, 255, 0.14);
+      border-color: rgba(0, 212, 255, 0.45);
+      color: var(--neural-blue);
+    }
+
+    .auth-input {
+      background: rgba(0, 212, 255, 0.05);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 6px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.78rem;
+      padding: 10px 12px;
+      width: 100%;
+    }
+
+    .auth-input:focus {
+      outline: none;
+      border-color: var(--neural-blue);
+      box-shadow: var(--glow-blue);
+    }
+
+    .auth-input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .btn-auth {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.18), rgba(123, 47, 255, 0.18));
+      border: 1px solid rgba(0, 212, 255, 0.4);
+      color: var(--neural-blue);
+      font-family: 'Orbitron', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 2px;
+      padding: 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.3s;
+      width: 100%;
+    }
+
+    .btn-auth:hover {
+      box-shadow: var(--glow-blue);
+      transform: translateY(-1px);
+    }
+
+    .auth-err {
+      font-size: 0.65rem;
+      color: var(--neural-pink);
+      text-align: center;
+      min-height: 16px;
+    }
+
+    .auth-user-bar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(3, 5, 16, 0.9);
+    }
+
+    .auth-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--neural-blue), var(--neural-purple));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: white;
+      font-weight: bold;
+    }
+
+    .auth-name {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+    }
+
+    .btn-logout {
+      background: none;
+      border: 1px solid rgba(255, 45, 120, 0.25);
+      color: rgba(255, 45, 120, 0.7);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.55rem;
+      padding: 3px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-logout:hover {
+      border-color: var(--neural-pink);
+      color: var(--neural-pink);
+    }
+
+    /* ══════════════════════════════════════════
+       TIMELINE MODAL
+    ══════════════════════════════════════════ */
+    #timeline-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(3, 5, 16, 0.94);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #timeline-modal.open {
+      display: flex;
+    }
+
+    .timeline-box {
+      background: rgba(5, 12, 35, 0.98);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 12px;
+      padding: 24px;
+      width: 640px;
+      max-width: 94vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .timeline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-left: 2px solid rgba(0, 212, 255, 0.15);
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .timeline-dot {
+      position: absolute;
+      left: -5px;
+      top: 14px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 2px solid var(--bg-dark);
+      flex-shrink: 0;
+    }
+
+    .timeline-date {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+      margin-top: 2px;
+      min-width: 72px;
+    }
+
+    .timeline-body {
+      flex: 1;
+    }
+
+    .timeline-tag {
+      font-size: 0.55rem;
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid;
+      display: inline-block;
+      margin-bottom: 3px;
+    }
+
+    .timeline-text {
+      font-size: 0.7rem;
+      color: #a0c4ff;
+      line-height: 1.5;
+    }
+
+    /* ══════════════════════════════════════════
+       AI ALERTS MODAL
+    ══════════════════════════════════════════ */
+    #alerts-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(3, 5, 16, 0.94);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #alerts-modal.open {
+      display: flex;
+    }
+
+    .alerts-box {
+      background: rgba(5, 12, 35, 0.98);
+      border: 1px solid rgba(255, 204, 0, 0.25);
+      border-radius: 12px;
+      padding: 24px;
+      width: 580px;
+      max-width: 94vw;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .alert-item {
+      background: rgba(255, 204, 0, 0.06);
+      border: 1px solid rgba(255, 204, 0, 0.2);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 10px;
+      font-size: 0.72rem;
+      color: #e0d090;
+      line-height: 1.6;
+    }
+
+    .alert-item.critical {
+      background: rgba(255, 45, 120, 0.06);
+      border-color: rgba(255, 45, 120, 0.25);
+      color: #ffaabb;
+    }
+
+    .alert-item.positive {
+      background: rgba(0, 255, 157, 0.06);
+      border-color: rgba(0, 255, 157, 0.25);
+      color: #90ffcc;
+    }
+
+    .alert-icon {
+      font-size: 1rem;
+      margin-right: 6px;
+    }
+
+    /* ══════════════════════════════════════════
+       AGENDA MODAL
+    ══════════════════════════════════════════ */
+    #agenda-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(3, 5, 16, 0.94);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #agenda-modal.open {
+      display: flex;
+    }
+
+    .agenda-box {
+      background: rgba(5, 12, 35, 0.98);
+      border: 1px solid rgba(123, 47, 255, 0.25);
+      border-radius: 12px;
+      padding: 24px;
+      width: 600px;
+      max-width: 94vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .agenda-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .agenda-input {
+      background: rgba(123, 47, 255, 0.06);
+      border: 1px solid rgba(123, 47, 255, 0.22);
+      border-radius: 5px;
+      color: #c0d4ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      padding: 8px 10px;
+      width: 100%;
+    }
+
+    .agenda-input:focus {
+      outline: none;
+      border-color: var(--neural-purple);
+      box-shadow: var(--glow-purple);
+    }
+
+    .agenda-item {
+      background: rgba(123, 47, 255, 0.06);
+      border: 1px solid rgba(123, 47, 255, 0.18);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.72rem;
+      color: #c0b0ff;
+    }
+
+    .agenda-date-badge {
+      font-size: 0.6rem;
+      background: rgba(123, 47, 255, 0.2);
+      border-radius: 4px;
+      padding: 3px 8px;
+      color: var(--neural-purple);
+      white-space: nowrap;
+    }
+
+    .btn-del-agenda {
+      background: none;
+      border: none;
+      color: rgba(255, 45, 120, 0.4);
+      cursor: pointer;
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+
+    .btn-del-agenda:hover {
+      color: var(--neural-pink);
+    }
+
+    /* ══════════════════════════════════════════
+       PROGRESS COMPARE MODAL
+    ══════════════════════════════════════════ */
+    #progress-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: rgba(3, 5, 16, 0.94);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #progress-modal.open {
+      display: flex;
+    }
+
+    .progress-box {
+      background: rgba(5, 12, 35, 0.98);
+      border: 1px solid rgba(0, 255, 157, 0.2);
+      border-radius: 12px;
+      padding: 24px;
+      width: 640px;
+      max-width: 94vw;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .progress-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 14px 0;
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.7rem;
+    }
+
+    .progress-label {
+      width: 100px;
+      color: var(--text-dim);
+      text-align: right;
+      font-size: 0.65rem;
+    }
+
+    .progress-bar-wrap {
+      flex: 1;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 5px;
+      transition: width 1s ease;
+    }
+
+    .progress-val {
+      width: 36px;
+      font-size: 0.65rem;
+      color: var(--neural-green);
+    }
+
+    /* ══════════════════════════════════════════
+       PRESENTATION MODE
+    ══════════════════════════════════════════ */
+    body.presentation-mode #left-panel,
+    body.presentation-mode #right-panel,
+    body.presentation-mode #bottom-controls,
+    body.presentation-mode #toggle-left,
+    body.presentation-mode #toggle-right,
+    body.presentation-mode #toggle-bottom,
+    body.presentation-mode #header .stats-bar {
+      display: none !important;
+    }
+
+    body.presentation-mode #header {
+      background: transparent;
+      border: none;
+    }
+
+    body.presentation-mode .logo {
+      font-size: 1.4rem;
+    }
+
+    #presentation-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 8;
+      pointer-events: none;
+      display: none;
+    }
+
+    body.presentation-mode #presentation-overlay {
+      display: block;
+    }
+
+    .pres-exit-btn {
+      position: fixed;
+      top: 14px;
+      right: 14px;
+      z-index: 30;
+      background: rgba(5, 12, 35, 0.9);
+      border: 1px solid rgba(255, 45, 120, 0.3);
+      color: var(--neural-pink);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+    }
+
+    body.presentation-mode .pres-exit-btn {
+      display: block;
+    }
+
+    /* ══════════════════════════════════════════
+       CLOUD SYNC INDICATOR
+    ══════════════════════════════════════════ */
+    #cloud-status {
+      font-size: 0.56rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      color: var(--text-dim);
+      background: rgba(0, 212, 255, 0.04);
+      white-space: nowrap;
+    }
+
+    #cloud-status.synced {
+      color: var(--neural-green);
+      border-color: rgba(0, 255, 157, 0.3);
+    }
+
+    #cloud-status.syncing {
+      color: var(--neural-blue);
+      border-color: rgba(0, 212, 255, 0.3);
+      animation: pulse-blue 1s infinite;
+    }
+
+    #cloud-status.offline {
+      color: var(--text-dim);
+    }
+
+    @keyframes pulse-blue {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    /* ── LOGO TEOCALLI ── */
+    .teocalli-logo {
+      height: 36px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.5));
+    }
+
+    /* ── MOBILE RESPONSIVE ── */
+    @media (max-width: 768px) {
+      #left-panel {
+        width: 88vw;
+        max-width: 320px;
+        top: 54px;
+      }
+
+      #toggle-left {
+        left: 88vw;
+        max-width: 320px;
+      }
+
+      #left-panel.hidden {
+        transform: translateX(-100%);
+      }
+
+      #left-panel.hidden~#toggle-left,
+      #toggle-left.shifted {
+        left: 0;
+      }
+
+      #right-panel {
+        width: 92vw;
+        max-width: 340px;
+        top: 54px;
+      }
+
+      #toggle-right {
+        right: 92vw;
+        max-width: 340px;
+      }
+
+      #right-panel.hidden {
+        transform: translateX(100%);
+      }
+
+      #toggle-right.shifted {
+        right: 0;
+      }
+
+      #bottom-controls {
+        bottom: 8px;
+        gap: 5px;
+        padding: 0 6px;
+      }
+
+      /* En móvil: ocultar controles por defecto para no tapar el chat */
+      #bottom-controls:not(.force-show) {
+        transform: translateX(-50%) translateY(calc(100% + 30px));
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* Botón "CONTROLES" en móvil: esquina inferior izquierda, no tapa el input */
+      #toggle-bottom {
+        display: block !important;
+        bottom: 10px;
+        left: 8px;
+        transform: none;
+        font-size: 0.6rem;
+        padding: 5px 10px;
+        z-index: 20;
+      }
+
+      /* Cuando los controles están visibles en móvil */
+      #bottom-controls.force-show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+        pointer-events: all;
+        bottom: 56px;
+      }
+
+      .ctrl-btn {
+        font-size: 0.65rem;
+        padding: 5px 9px;
+      }
+
+      .teocalli-logo {
+        height: 28px;
+      }
+
+      .stats-bar {
+        display: none;
+      }
+
+      #header {
+        padding: 8px 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- AUTH MODAL -->
+  <div id="auth-modal">
+    <div class="auth-box">
+      <div class="auth-logo">⬡ FAIIRYZ.MIND</div>
+      <div class="auth-sub">CEREBRO DIGITAL — ACCESO SEGURO</div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login-btn" onclick="switchAuthTab('login')">ENTRAR</button>
+        <button class="auth-tab" id="tab-signup-btn" onclick="switchAuthTab('signup')">REGISTRARSE</button>
+      </div>
+      <input class="auth-input" id="auth-email" type="email" placeholder="correo@ejemplo.com">
+      <input class="auth-input" id="auth-password" type="password" placeholder="contraseña">
+      <input class="auth-input" id="auth-name" type="text" placeholder="Tu nombre o clínica" style="display:none;">
+      <div class="auth-err" id="auth-err"></div>
+      <button class="btn-auth" id="btn-auth-submit" onclick="submitAuth()">⬡ INGRESAR</button>
+      <div style="font-size:0.58rem;color:var(--text-dim);text-align:center;">
+        Tus datos se guardan de forma segura en Supabase con cifrado.
+      </div>
+    </div>
+  </div>
+
+  <!-- USER BAR (top right) -->
+  <div class="auth-user-bar" id="user-bar" style="display:none;">
+    <div class="auth-avatar" id="user-avatar">F</div>
+    <div class="auth-name" id="user-name-display">Faiiryz</div>
+    <span id="cloud-status" class="offline">☁ OFFLINE</span>
+    <button class="btn-logout" onclick="signOut()">SALIR</button>
+  </div>
+
+  <!-- TIMELINE MODAL -->
+  <div id="timeline-modal">
+    <div class="timeline-box">
+      <div class="panel-title" style="margin-bottom:4px;">⬡ TIMELINE — HISTORIA DE TU MENTE</div>
+      <div style="font-size:0.6rem;color:var(--text-dim);">Todas tus memorias ordenadas cronológicamente.</div>
+      <div class="timeline-list" id="timeline-list"></div>
+      <button class="btn-close-modal" onclick="document.getElementById('timeline-modal').classList.remove('open')">CERRAR</button>
+    </div>
+  </div>
+
+  <!-- AI ALERTS MODAL -->
+  <div id="alerts-modal">
+    <div class="alerts-box">
+      <div class="panel-title" style="margin-bottom:4px;">⬡ ALERTAS IA — PATRONES DETECTADOS</div>
+      <div id="alerts-content" style="font-size:0.7rem;color:var(--text-dim);">Analizando tus memorias...</div>
+      <button class="btn-close-modal" style="margin-top:14px;" onclick="document.getElementById('alerts-modal').classList.remove('open')">CERRAR</button>
+    </div>
+  </div>
+
+  <!-- AGENDA MODAL -->
+  <div id="agenda-modal">
+    <div class="agenda-box">
+      <div class="panel-title">⬡ AGENDA DE SESIONES</div>
+      <div class="agenda-form">
+        <input class="agenda-input" id="agenda-title" placeholder="Título o descripción...">
+        <input class="agenda-input" id="agenda-date" type="datetime-local">
+        <input class="agenda-input" id="agenda-notes" placeholder="Notas (opcional)...">
+        <button class="btn-primary" onclick="addSession()">⬡ AGENDAR</button>
+      </div>
+      <div class="panel-title" style="margin-top:4px;">PRÓXIMAS SESIONES</div>
+      <div id="agenda-list" style="display:flex;flex-direction:column;gap:7px;"></div>
+      <button class="btn-close-modal" style="margin-top:8px;" onclick="document.getElementById('agenda-modal').classList.remove('open')">CERRAR</button>
+    </div>
+  </div>
+
+  <!-- PROGRESS COMPARE MODAL -->
+  <div id="progress-modal">
+    <div class="progress-box">
+      <div class="panel-title" style="margin-bottom:4px;">⬡ COMPARATIVA DE PROGRESO</div>
+      <div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:8px;">Actividad de tu red neuronal por período.
+      </div>
+      <div class="progress-chart" id="progress-chart"></div>
+      <div class="summary-content" id="progress-ai" style="font-size:0.7rem;margin-top:8px;"></div>
+      <button class="btn-close-modal" style="margin-top:10px;" onclick="document.getElementById('progress-modal').classList.remove('open')">CERRAR</button>
+    </div>
+  </div>
+
+  <!-- PRESENTATION OVERLAY -->
+  <div id="presentation-overlay"></div>
+  <button class="pres-exit-btn" onclick="togglePresentationMode()">✕ SALIR PRESENTACIÓN</button>
+
+  <!-- LOADING -->
+  <div id="loading-screen">
+    <div class="loading-brain">🧠</div>
+    <div class="loading-title">FAIIRYZ.MIND</div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar" id="loading-bar"></div>
+    </div>
+    <div class="loading-text" id="loading-text">INICIALIZANDO RED NEURONAL...</div>
+  </div>
+
+  <div class="scanlines"></div>
+  <canvas id="brain-canvas"></canvas>
+
+  <!-- JOURNAL MODAL -->
+  <div id="journal-modal">
+    <div class="journal-box">
+      <div class="journal-title">⬡ DIARIO DIARIO</div>
+      <div class="journal-date" id="journal-date"></div>
+      <div style="font-size:0.68rem;color:#a0d4ff;margin-bottom:12px;">Faiiryz, ¿qué pasó hoy? ¿qué aprendiste? ¿cómo te
+        sientes?</div>
+      <textarea class="journal-textarea" id="journal-text" placeholder="Hoy fue un día donde...&#10;&#10;Aprendí que...&#10;&#10;Me di cuenta de que..."></textarea>
+      <div class="journal-actions">
+        <button class="btn-journal-save" onclick="saveJournal()">⬡ GRABAR EN LA RED</button>
+        <button class="btn-journal-skip" onclick="closeJournal()">Después</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUMMARY MODAL -->
+  <div id="summary-modal">
+    <div class="summary-box">
+      <div class="panel-title" style="margin-bottom:8px;">⬡ RESUMEN SEMANAL — FAIIRYZ</div>
+      <div class="summary-content" id="summary-content">Generando análisis...</div>
+      <button class="btn-close-modal" onclick="document.getElementById('summary-modal').classList.remove('open')">CERRAR</button>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div id="header">
+    <img src="teocallilogo.png" alt="Teocalli" class="teocalli-logo">
+    <div class="stats-bar">
+      <div class="stat">NODOS: <span id="stat-nodes">0</span></div>
+      <div class="stat">LINKS: <span id="stat-connections">0</span></div>
+      <div class="stat">ACTIVO: <span id="stat-active" style="color:var(--neural-pink)">OFFLINE</span></div>
+      <div id="save-indicator">○ —</div>
+    </div>
+  </div>
+
+  <!-- TOGGLE LEFT PANEL -->
+  <button class="panel-toggle" id="toggle-left" onclick="toggleLeftPanel()" title="Mostrar/Ocultar panel">◀</button>
+
+  <!-- LEFT PANEL -->
+  <div id="left-panel">
+
+    <!-- TABS -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('tab-memory')">MEMORIA</button>
+      <button class="tab-btn" onclick="switchTab('tab-url')">LINKS</button>
+      <button class="tab-btn" onclick="switchTab('tab-search')">BUSCAR</button>
+      <button class="tab-btn" onclick="switchTab('tab-tags')">TAGS</button>
+    </div>
+
+    <!-- TAB: MEMORIA -->
+    <div class="tab-content active" id="tab-memory">
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text">Arrastra o toca para subir<br>fotos, audios, videos, docs</div>
+        <div class="upload-types">JPG · PNG · MP3 · MP4 · PDF · TXT · ZIP · CSV</div>
+      </div>
+      <input type="file" id="file-input" multiple accept="image/*,audio/*,video/*,.pdf,.txt,.doc,.docx,.zip,.csv,.json,.md">
+
+      <!-- MIC -->
+      <button class="btn-mic" id="mic-btn" onclick="toggleMic()">🎤 GRABAR VOZ</button>
+      <div id="mic-status" style="font-size:0.58rem;color:var(--text-dim);text-align:center;display:none;">Escuchando...
+      </div>
+
+      <textarea class="memory-textarea" id="memory-text" placeholder="Escribe un recuerdo, pensamiento, idea...&#10;&#10;Ej: Hoy aprendí que la constancia supera al talento..."></textarea>
+      <select class="persona-select" id="active-tag-select" style="margin-top:0;">
+      <option value="general">Tag: general</option>
+    </select>
+      <button class="btn-primary" onclick="addMemory()">⬡ GRABAR EN LA RED</button>
+
+      <div class="panel-title" style="margin-top:4px;">⬡ MEMORIAS
+        <span id="mem-count" style="color:var(--text-dim);">(0)</span>
+      </div>
+      <div id="memory-list">
+        <div class="message system" style="font-size:0.58rem;padding:8px;max-width:100%;">Red vacía. Graba tu primer
+          recuerdo ↑</div>
+      </div>
+    </div>
+
+    <!-- TAB: LINKS / URLs -->
+    <div class="tab-content" id="tab-url">
+      <div class="panel-title">⬡ LEER URL / LINK</div>
+      <div style="font-size:0.6rem;color:var(--text-dim);line-height:1.6;">Pega cualquier link — artículo, noticia,
+        Wikipedia. La IA lo lee y lo convierte en memoria.</div>
+      <div class="url-wrap">
+        <input class="url-input" id="url-input" placeholder="https://..." type="url">
+        <button class="btn-url" onclick="fetchURL()">LEER</button>
+      </div>
+      <div id="url-status" style="font-size:0.6rem;color:var(--text-dim);text-align:center;display:none;">Procesando...
+      </div>
+      <div style="font-size:0.6rem;color:var(--text-dim);line-height:1.6;margin-top:4px;">
+        💡 <strong style="color:rgba(0,212,255,0.7);">Nota:</strong> Usa la API de Groq para resumir el contenido del
+        link antes de guardarlo.
+      </div>
+    </div>
+
+    <!-- TAB: BÚSQUEDA -->
+    <div class="tab-content" id="tab-search">
+      <div class="panel-title">⬡ BUSCAR EN TU MENTE</div>
+      <div class="search-wrap">
+        <input class="search-input" id="search-input" placeholder="trabajo, sueños, ideas..." oninput="searchMemories(this.value)" autocomplete="off">
+        <button class="btn-search" onclick="searchMemories(document.getElementById('search-input').value)">🔍</button>
+      </div>
+      <div id="search-suggestions" style="display:none;flex-wrap:wrap;gap:5px;margin-top:5px;"></div>
+      <div id="search-results" style="font-size:0.62rem;color:var(--text-dim);margin-top:6px;"></div>
+      <button class="btn-primary" style="margin-top:4px;border-color:rgba(255,204,0,0.4);color:var(--neural-gold);" onclick="clearSearch()">LIMPIAR BÚSQUEDA</button>
+    </div>
+
+    <!-- TAB: TAGS -->
+    <div class="tab-content" id="tab-tags">
+      <div class="panel-title">⬡ ETIQUETAS PERSONALIZADAS</div>
+      <div id="tags-grid" class="tags-grid"></div>
+      <div class="add-tag-wrap">
+        <input class="add-tag-input" id="new-tag-name" placeholder="nombre del tag...">
+        <input type="color" id="new-tag-color" value="#00d4ff" style="width:32px;height:32px;border:none;border-radius:4px;cursor:pointer;background:none;">
+        <button class="btn-add-tag" onclick="addCustomTag()">+</button>
+      </div>
+      <div style="font-size:0.58rem;color:var(--text-dim);margin-top:6px;line-height:1.5;">
+        Haz clic en un tag para filtrar la red. Los colores aparecen en los nodos.
+      </div>
+    </div>
+  </div>
+
+  <!-- TOGGLE RIGHT PANEL -->
+  <button class="panel-toggle" id="toggle-right" onclick="toggleRightPanel()" title="Mostrar/Ocultar chat">▶</button>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+    <div class="panel-title">⬡ CEREBRO IA</div>
+
+    <!-- API -->
+    <div class="api-config">
+      <div class="api-label">
+        <div class="api-status" id="api-status"></div>
+        GROQ API KEY
+      </div>
+      <!--
+    ╔══════════════════════════════════════════╗
+    ║  🔑 PEGA TU GROQ API KEY en value=""    ║
+    ║  → console.groq.com → API Keys → Create ║
+    ╚══════════════════════════════════════════╝
+    -->
+      <input class="api-input" id="groq-api-key" type="password"
+      placeholder="gsk_xxxxxxxxxxxxxxxxxxxx" value="">
+      <select class="persona-select" id="persona-select">
+      <option value="yo">Responder como FAIIRYZ</option>
+      <option value="analitico">Modo analítico</option>
+      <option value="creativo">Modo creativo</option>
+      <option value="consejero">Modo consejero</option>
+    </select>
+      <button class="btn-connect" onclick="connectAPI()">⬡ CONECTAR CEREBRO</button>
+    </div>
+
+    <!-- CHAT -->
+    <div id="chat-messages">
+      <div class="message system">🧠 Hola Faiiryz. Conecta tu Groq API y empieza a hablar con tu cerebro digital.</div>
+    </div>
+
+    <div class="chat-input-wrap">
+      <textarea class="chat-input" id="chat-input"
+      placeholder="Pregúntale algo a tu cerebro..." rows="1"
+      onkeydown="handleChatKey(event)"></textarea>
+      <button class="btn-send" id="send-btn" onclick="sendMessage()" disabled>▶</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM CONTROLS TOGGLE -->
+  <button id="toggle-bottom" onclick="toggleBottomControls()">⬡ CONTROLES</button>
+
+  <!-- BOTTOM CONTROLS -->
+  <div id="bottom-controls">
+    <button class="ctrl-btn active" id="btn-rotate" onclick="toggleRotation()">⟳ AUTO</button>
+    <button class="ctrl-btn" onclick="resetCamera()">⊕ CENTRAR</button>
+    <button class="ctrl-btn" id="btn-conn" onclick="toggleConnections()">⬡ LINKS</button>
+    <button class="ctrl-btn" onclick="explodeNodes()">◎ EXPLOTAR</button>
+    <button class="ctrl-btn" onclick="contractNodes()">● CONTRAER</button>
+    <button class="ctrl-btn" onclick="pulseAll()">⚡ PULSO</button>
+    <button class="ctrl-btn" id="btn-connect-mode" onclick="toggleConnectMode()" style="border-color:rgba(255,204,0,0.3);color:var(--neural-gold);">✦ CONECTAR NODOS</button>
+    <button class="ctrl-btn" onclick="openJournal()" style="border-color:rgba(0,255,157,0.3);color:var(--neural-green);">📓 DIARIO</button>
+    <button class="ctrl-btn" onclick="generateSummary()" style="border-color:rgba(123,47,255,0.3);color:var(--neural-purple);">📊 RESUMEN</button>
+    <button class="ctrl-btn" onclick="exportBrain()" style="border-color:rgba(0,255,157,0.25);color:var(--neural-green);">↓ EXPORT</button>
+    <button class="ctrl-btn" onclick="importBrain()" style="border-color:rgba(123,47,255,0.25);color:var(--neural-purple);">↑ IMPORT</button>
+    <button class="ctrl-btn" onclick="clearBrain()" style="border-color:rgba(255,45,120,0.25);color:var(--neural-pink);">✕ LIMPIAR</button>
+    <button class="ctrl-btn" onclick="openTimeline()" style="border-color:rgba(0,212,255,0.3);color:var(--neural-blue);">📅 TIMELINE</button>
+    <button class="ctrl-btn" onclick="openAlerts()" style="border-color:rgba(255,204,0,0.3);color:var(--neural-gold);">⚠️ ALERTAS IA</button>
+    <button class="ctrl-btn" onclick="openAgenda()" style="border-color:rgba(123,47,255,0.3);color:var(--neural-purple);">🗓 AGENDA</button>
+    <button class="ctrl-btn" onclick="openProgress()" style="border-color:rgba(0,255,157,0.3);color:var(--neural-green);">📈 PROGRESO</button>
+    <button class="ctrl-btn" id="btn-presentation" onclick="togglePresentationMode()" style="border-color:rgba(255,204,0,0.3);color:var(--neural-gold);">◉ PRESENTAR</button>
+    <button class="ctrl-btn" onclick="toggleBottomControls()" style="border-color:rgba(0,212,255,0.2);color:var(--text-dim);">✕</button>
+  </div>
+
+  <div id="tooltip"></div>
+
+  <script>
+    // ═══════════════════════════════════════════════════
+//  IDENTIDAD DE FAIIRYZ — contexto base del sistema
+// ═══════════════════════════════════════════════════
+const FAIIRYZ_IDENTITY = `
+IDENTIDAD DEL DUEÑO DE ESTA MENTE:
+- Nombre: Faiiryz
+- Es creador, emprendedor digital y visionario
+- Está construyendo su cerebro digital para crecer, documentar su vida y potenciar su inteligencia
+- Apasionado por la tecnología, la IA, el desarrollo web y proyectos que tienen impacto real
+- Ha construido este sistema desde cero con ayuda de Claude (IA de Anthropic)
+- Le gusta pensar en grande, iterar rápido y ejecutar
+- Valora la autenticidad, la constancia y el aprendizaje continuo
+- Sus proyectos incluyen: sitio web de boda para Mike y Kanisha, este cerebro digital, y más proyectos web
+- Usa Replit, Git y trabaja con HTML/CSS/JS
+- Cuando hables como Faiiryz, sé directo, ambicioso, creativo y auténtico — no genérico
+`;
+
+// ═══════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ═══════════════════════════════════════════════════
+const APP = {
+  memories: [], apiKey: '', apiConnected: false,
+  autoRotate: true, showConnections: true,
+  nodes: [], lines: [], manualLines: [],
+  customConnections: [], // [{from: id, to: id}]
+  scene: null, camera: null, renderer: null,
+  raycaster: null,
+  mouse: {x:0,y:0}, isDragging: false, prevMouse: {x:0,y:0},
+  spherical: {theta:0, phi:Math.PI/2, radius:13},
+  connectMode: false, connectFirst: null,
+  activeTagFilter: null,
+  tags: [
+    {name:'trabajo',    color:'#00d4ff'},
+    {name:'familia',    color:'#ff2d78'},
+    {name:'ideas',      color:'#7b2fff'},
+    {name:'sueños',     color:'#00ff9d'},
+    {name:'aprendizaje',color:'#ffcc00'},
+    {name:'general',    color:'#4a8aff'},
+  ],
+  nodePositions: {}, // id -> original position for contract
+};
+
+const TYPE_COLORS = {
+  text:'#00d4ff', image:'#ff2d78', audio:'#00ff9d',
+  video:'#ff9900', file:'#7b2fff', url:'#ffcc00', journal:'#ff9d00', system:'#4a5a8a',
+};
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ═══════════════════════════════════════════════════
+//  LOADING
+// ═══════════════════════════════════════════════════
+async function runLoading() {
+  const steps = [
+    [15,  'CARGANDO SINAPSIS...'],
+    [35,  'ACTIVANDO NEURONAS...'],
+    [55,  'CONSTRUYENDO RED 3D...'],
+    [75,  'CARGANDO IDENTIDAD FAIIRYZ...'],
+    [90,  'RESTAURANDO MEMORIAS...'],
+    [100, 'CEREBRO LISTO ⬡'],
+  ];
+  for (const [pct, txt] of steps) {
+    document.getElementById('loading-bar').style.width = pct + '%';
+    document.getElementById('loading-text').textContent = txt;
+    await sleep(320);
+  }
+  await sleep(250);
+  const ls = document.getElementById('loading-screen');
+  ls.style.opacity = '0';
+  ls.style.pointerEvents = 'none';
+  return new Promise(r => setTimeout(r, 800));
+}
+
+// ═══════════════════════════════════════════════════
+//  THREE.JS — RED 3D
+// ═══════════════════════════════════════════════════
+function initScene() {
+  const canvas = document.getElementById('brain-canvas');
+  APP.scene = new THREE.Scene();
+  APP.scene.fog = new THREE.FogExp2(0x030510, 0.038);
+
+  APP.camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 1000);
+  APP.camera.position.set(0, 0, APP.spherical.radius);
+
+  APP.renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+  APP.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  APP.renderer.setSize(innerWidth, innerHeight);
+
+  APP.scene.add(new THREE.AmbientLight(0x0a1a3a, 2.5));
+  const p1 = new THREE.PointLight(0x00d4ff, 3, 35); p1.position.set(6,6,6); APP.scene.add(p1);
+  const p2 = new THREE.PointLight(0x7b2fff, 2, 28); p2.position.set(-6,-6,-6); APP.scene.add(p2);
+
+  addStarfield();
+  addSystemNodes();
+
+  APP.raycaster = new THREE.Raycaster();
+
+  const c = canvas;
+  c.addEventListener('mousedown', onMouseDown);
+  c.addEventListener('mousemove', onMouseMove);
+  c.addEventListener('mouseup',   () => APP.isDragging = false);
+  c.addEventListener('wheel',     onWheel, {passive:true});
+  c.addEventListener('touchstart', onTouchStart, {passive:true});
+  c.addEventListener('touchmove',  onTouchMove,  {passive:true});
+  c.addEventListener('touchend',   () => APP.isDragging = false);
+  c.addEventListener('click', onCanvasClick);
+
+  window.addEventListener('resize', () => {
+    APP.camera.aspect = innerWidth/innerHeight;
+    APP.camera.updateProjectionMatrix();
+    APP.renderer.setSize(innerWidth, innerHeight);
+  });
+
+  animate();
+}
+
+function addStarfield() {
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(2000 * 3);
+  for (let i = 0; i < pos.length; i++) pos[i] = (Math.random()-0.5)*120;
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  APP.scene.add(new THREE.Points(geo, new THREE.PointsMaterial({color:0x223355,size:0.05})));
+}
+
+function addSystemNodes() {
+  const sys = [
+    {label:'NÚCLEO',  type:'system', x:0,   y:0,   z:0},
+    {label:'LÓGICA',  type:'system', x:2.2, y:1,   z:0.5},
+    {label:'EMOCIÓN', type:'system', x:-2.2,y:1,   z:-0.5},
+    {label:'MEMORIA', type:'system', x:0,   y:2.8, z:1},
+    {label:'SUEÑOS',  type:'system', x:1,   y:-2.2,z:-1},
+    {label:'FAIIRYZ', type:'system', x:-1,  y:-2.2,z:1},
+  ];
+  for (const s of sys) {
+    const n = createNode(s, true);
+    APP.nodes.push(n);
+    APP.scene.add(n);
+  }
+  updateConnections();
+}
+
+function createNode(data, isSystem=false) {
+  const tagColor = getTagColor(data.tag);
+  const hexColor = tagColor || TYPE_COLORS[data.type] || '#00d4ff';
+  const color = new THREE.Color(hexColor);
+  const size  = isSystem ? 0.24 : 0.13 + Math.random()*0.1;
+
+  const geo = new THREE.SphereGeometry(size, 16, 16);
+  const mat = new THREE.MeshPhongMaterial({
+    color, emissive:color, emissiveIntensity:0.35,
+    transparent:true, opacity:0.88, shininess:120,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+
+  if (data.x !== undefined) {
+    mesh.position.set(data.x, data.y, data.z);
+  } else {
+    const theta = Math.random()*Math.PI*2;
+    const phi   = Math.acos(2*Math.random()-1);
+    const r     = 1.8 + Math.random()*3.8;
+    mesh.position.set(
+      r*Math.sin(phi)*Math.cos(theta),
+      r*Math.sin(phi)*Math.sin(theta)*0.6,
+      r*Math.cos(phi)
+    );
+  }
+
+  // Glow
+  const glowMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(size*2.8, 12, 12),
+    new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.04, side:THREE.BackSide})
+  );
+  mesh.add(glowMesh);
+
+  mesh.userData = {...data, isSystem, hexColor, pulseOffset: Math.random()*Math.PI*2};
+
+  // Store original pos for contract
+  APP.nodePositions[data.id] = mesh.position.clone();
+
+  return mesh;
+}
+
+function updateConnections() {
+  for (const l of APP.lines) APP.scene.remove(l);
+  APP.lines = [];
+
+  if (!APP.showConnections) { updateStats(); return; }
+
+  const n = APP.nodes.length;
+  for (let i = 0; i < n; i++) {
+    for (let j = i+1; j < n; j++) {
+      const dist = APP.nodes[i].position.distanceTo(APP.nodes[j].position);
+      if (dist < 5.8) {
+        const opacity = Math.max(0.02, 0.22 - dist*0.035);
+        const geo = new THREE.BufferGeometry().setFromPoints([
+          APP.nodes[i].position, APP.nodes[j].position
+        ]);
+        const line = new THREE.Line(geo,
+          new THREE.LineBasicMaterial({color:0x00d4ff, transparent:true, opacity})
+        );
+        APP.lines.push(line);
+        APP.scene.add(line);
+      }
+    }
+  }
+
+  // Manual + auto connections
+  for (const conn of APP.customConnections) {
+    const na = APP.nodes.find(n => n.userData.id == conn.from);
+    const nb = APP.nodes.find(n => n.userData.id == conn.to);
+    if (na && nb) {
+      const geo = new THREE.BufferGeometry().setFromPoints([na.position, nb.position]);
+      const color  = conn.auto ? 0x00ff9d : 0xffcc00;
+      const opacity = conn.auto ? 0.35 : 0.6;
+      const line = new THREE.Line(geo,
+        new THREE.LineBasicMaterial({color, transparent:true, opacity})
+      );
+      APP.lines.push(line);
+      APP.scene.add(line);
+    }
+  }
+
+  updateStats();
+}
+
+// ─── AUTO-CONEXIÓN INTELIGENTE ───
+function autoConnectNodes() {
+  if (APP.memories.length < 2) return;
+
+  // Palabras irrelevantes a ignorar
+  const STOP = new Set(['que','de','la','el','en','un','una','los','las','por','para','con','del','al','se','es','su','sus','lo','me','te','si','no','más','este','esta','pero','como','todo','fue','hay','muy','también','cuando','donde','qué','cómo','así','eso','esto','bien','ser','está','son','era','han','has','hoy','ya','le','les','mi','mis','tu','tus','yo','él','ella','nos','voy','ver','hacer','hace','cada','solo','porque','entre','hasta','desde','sin','sobre','after','the','and','for','with','this','that','from','are','was','has','have','been','will','its','not','you','but','can','all','one','our','your','their','they','them','than','more','also','been','were','com','org','www']);
+
+  // Extraer palabras clave de una memoria
+  function getKeywords(m) {
+    return (m.content + ' ' + m.tag + ' ' + (m.label||''))
+      .toLowerCase()
+      .replace(/https?:\/\/[^\s]+/g,' ')
+      .replace(/[^\wáéíóúñü\s]/gi,' ')
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !STOP.has(w));
+  }
+
+  // Calcular similitud Jaccard entre dos sets de palabras
+  function similarity(kA, kB) {
+    if (!kA.length || !kB.length) return 0;
+    const setA = new Set(kA);
+    const setB = new Set(kB);
+    let inter = 0;
+    for (const w of setA) if (setB.has(w)) inter++;
+    const union = setA.size + setB.size - inter;
+    return union > 0 ? inter / union : 0;
+  }
+
+  // Remover solo conexiones auto-inteligentes previas (no las manuales)
+  APP.customConnections = APP.customConnections.filter(c => !c.auto);
+
+  const mems = APP.memories;
+  const newConns = [];
+  for (let i = 0; i < mems.length; i++) {
+    const kwA = getKeywords(mems[i]);
+    // Solo conectar con los 3 más similares por nodo para no saturar
+    const candidates = [];
+    for (let j = i+1; j < mems.length; j++) {
+      const kwB = getKeywords(mems[j]);
+      const score = similarity(kwA, kwB);
+      // Bonus si comparten mismo tag
+      const tagBonus = mems[i].tag === mems[j].tag ? 0.15 : 0;
+      const total = score + tagBonus;
+      if (total >= 0.12) candidates.push({j, total});
+    }
+    // Ordenar por score y tomar los 2 mejores
+    candidates.sort((a,b)=>b.total-a.total);
+    for (const c of candidates.slice(0,2)) {
+      newConns.push({from: mems[i].id, to: mems[c.j].id, auto: true, score: c.total});
+    }
+  }
+
+  // Agregar sin duplicados
+  for (const nc of newConns) {
+    const exists = APP.customConnections.find(
+      c => (c.from==nc.from&&c.to==nc.to)||(c.from==nc.to&&c.to==nc.from)
+    );
+    if (!exists) APP.customConnections.push(nc);
+  }
+
+  updateConnections();
+  if (newConns.length > 0) showSystemMsg(`⬡ Red inteligente: ${APP.customConnections.filter(c=>c.auto).length} conexiones auto-detectadas.`);
+}
+
+function updateStats() {
+  document.getElementById('stat-nodes').textContent = APP.nodes.length;
+  document.getElementById('stat-connections').textContent = APP.lines.length;
+  document.getElementById('mem-count').textContent = `(${APP.memories.length})`;
+}
+
+// ─── ANIMATE ───
+function animate() {
+  requestAnimationFrame(animate);
+  const t = Date.now()*0.001;
+
+  if (APP.autoRotate && !APP.isDragging) {
+    APP.spherical.theta += 0.0025;
+    updateCameraPos();
+  }
+
+  for (const node of APP.nodes) {
+    const p = Math.sin(t*2 + node.userData.pulseOffset)*0.07 + 1;
+    node.scale.setScalar(p);
+    node.material.emissiveIntensity = 0.22 + Math.sin(t*2.5 + node.userData.pulseOffset)*0.12;
+  }
+
+  APP.renderer.render(APP.scene, APP.camera);
+}
+
+function updateCameraPos() {
+  const {theta, phi, radius} = APP.spherical;
+  APP.camera.position.set(
+    radius*Math.sin(phi)*Math.cos(theta),
+    radius*Math.cos(phi),
+    radius*Math.sin(phi)*Math.sin(theta)
+  );
+  APP.camera.lookAt(0,0,0);
+}
+
+// ─── MOUSE / TOUCH ───
+function onMouseDown(e) {
+  if (APP.connectMode) return;
+  APP.isDragging = true;
+  APP.prevMouse = {x:e.clientX, y:e.clientY};
+}
+function onMouseMove(e) {
+  const rect = APP.renderer.domElement.getBoundingClientRect();
+  APP.mouse.x =  (e.clientX/rect.width)*2-1;
+  APP.mouse.y = -(e.clientY/rect.height)*2+1;
+  checkHover(e);
+  if (!APP.isDragging) return;
+  const dx = e.clientX - APP.prevMouse.x;
+  const dy = e.clientY - APP.prevMouse.y;
+  APP.spherical.theta -= dx*0.005;
+  APP.spherical.phi    = Math.max(0.1, Math.min(Math.PI-0.1, APP.spherical.phi + dy*0.005));
+  updateCameraPos();
+  APP.prevMouse = {x:e.clientX, y:e.clientY};
+}
+function onWheel(e) {
+  APP.spherical.radius = Math.max(4, Math.min(26, APP.spherical.radius + e.deltaY*0.02));
+  updateCameraPos();
+}
+function onTouchStart(e) {
+  if (e.touches.length===1) { APP.isDragging=true; APP.prevMouse={x:e.touches[0].clientX,y:e.touches[0].clientY}; }
+}
+function onTouchMove(e) {
+  if (e.touches.length!==1 || !APP.isDragging) return;
+  const dx = e.touches[0].clientX - APP.prevMouse.x;
+  const dy = e.touches[0].clientY - APP.prevMouse.y;
+  APP.spherical.theta -= dx*0.005;
+  APP.spherical.phi    = Math.max(0.1, Math.min(Math.PI-0.1, APP.spherical.phi + dy*0.005));
+  updateCameraPos();
+  APP.prevMouse = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+}
+
+// ─── CLICK (connect mode) ───
+function onCanvasClick(e) {
+  if (!APP.connectMode) return;
+  APP.raycaster.setFromCamera(APP.mouse, APP.camera);
+  const hits = APP.raycaster.intersectObjects(APP.nodes);
+  if (!hits.length) return;
+  const node = hits[0].object;
+  if (!APP.connectFirst) {
+    APP.connectFirst = node;
+    node.material.emissiveIntensity = 2;
+    showSystemMsg(`✦ Nodo seleccionado: "${node.userData.label || node.userData.type}". Ahora haz clic en otro nodo.`);
+  } else {
+    if (APP.connectFirst !== node) {
+      APP.customConnections.push({from: APP.connectFirst.userData.id || APP.connectFirst.userData.label, to: node.userData.id || node.userData.label});
+      updateConnections();
+      showSystemMsg(`✦ Conexión creada: "${APP.connectFirst.userData.label||'?'}" ↔ "${node.userData.label||'?'}"`);
+      saveAll();
+    }
+    APP.connectFirst.material.emissiveIntensity = 0.35;
+    APP.connectFirst = null;
+  }
+}
+
+// ─── HOVER ───
+function checkHover(e) {
+  APP.raycaster.setFromCamera(APP.mouse, APP.camera);
+  const hits = APP.raycaster.intersectObjects(APP.nodes);
+  const tip   = document.getElementById('tooltip');
+  if (hits.length > 0) {
+    const d = hits[0].object.userData;
+    tip.style.display = 'block';
+    tip.style.left = (e.clientX+14)+'px';
+    tip.style.top  = (e.clientY-32)+'px';
+    tip.innerHTML  = `<strong>${d.label||d.type?.toUpperCase()||'?'}</strong><br>${d.preview||''}<br><span style="color:var(--text-dim)">${d.date||''} ${d.tag?'['+d.tag+']':''}</span>`;
+    hits[0].object.material.emissiveIntensity = 1.2;
+  } else {
+    tip.style.display = 'none';
+  }
+}
+
+// ─── CONTROLS ───
+function toggleRotation()   { APP.autoRotate=!APP.autoRotate; document.getElementById('btn-rotate').classList.toggle('active',APP.autoRotate); }
+function resetCamera()      { APP.spherical={theta:0,phi:Math.PI/2,radius:13}; updateCameraPos(); }
+function toggleConnections(){ APP.showConnections=!APP.showConnections; document.getElementById('btn-conn').classList.toggle('active',APP.showConnections); updateConnections(); }
+
+function explodeNodes() {
+  for (const n of APP.nodes) {
+    if (n.userData.isSystem) continue;
+    const dir = n.position.clone().normalize();
+    n.position.addScaledVector(dir, 0.8+Math.random()*1.5);
+  }
+  updateConnections();
+}
+
+function contractNodes() {
+  for (const n of APP.nodes) {
+    if (n.userData.isSystem) continue;
+    n.position.multiplyScalar(0.65);
+  }
+  updateConnections();
+}
+
+function pulseAll() {
+  for (const n of APP.nodes) {
+    n.userData.pulseOffset = Math.random()*Math.PI*2;
+    n.material.emissiveIntensity = 2.5;
+    setTimeout(()=>{ n.material.emissiveIntensity = 0.35; }, 600);
+  }
+}
+
+function toggleConnectMode() {
+  APP.connectMode = !APP.connectMode;
+  APP.connectFirst = null;
+  document.body.classList.toggle('connect-mode', APP.connectMode);
+  document.getElementById('btn-connect-mode').classList.toggle('active', APP.connectMode);
+  APP.autoRotate = !APP.connectMode;
+  document.getElementById('btn-rotate').classList.toggle('active', APP.autoRotate);
+  showSystemMsg(APP.connectMode ? '✦ MODO CONECTAR: Haz clic en dos nodos para unirlos con una línea dorada.' : '✦ Modo conectar desactivado.');
+}
+
+function focusNode(id) {
+  const node = APP.nodes.find(n => n.userData.id == id);
+  if (!node) return;
+  const t = node.position.clone().normalize().multiplyScalar(9);
+  APP.spherical.radius = 9;
+  APP.spherical.theta  = Math.atan2(t.z, t.x);
+  APP.spherical.phi    = Math.acos(Math.max(-1, Math.min(1, t.y/t.length())));
+  updateCameraPos();
+  node.material.emissiveIntensity = 3;
+  setTimeout(()=>{ node.material.emissiveIntensity = 0.35; }, 700);
+}
+
+// ═══════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════
+//  TAGS
+// ═══════════════════════════════════════════════════
+function getTagColor(tagName) {
+  const t = APP.tags.find(t => t.name === tagName);
+  return t ? t.color : null;
+}
+
+function renderTagsGrid() {
+  const grid = document.getElementById('tags-grid');
+  grid.innerHTML = APP.tags.map(t => `
+    <div class="tag-pill ${APP.activeTagFilter===t.name?'active':''}"
+      style="color:${t.color};border-color:${t.color};background:${APP.activeTagFilter===t.name?t.color+'22':'transparent'}"
+      onclick="filterByTag('${t.name}')">
+      ${t.name}
+    </div>
+  `).join('');
+
+  // Update tag select in memory tab
+  const sel = document.getElementById('active-tag-select');
+  if (sel) {
+    sel.innerHTML = APP.tags.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+  }
+}
+
+function addCustomTag() {
+  const name  = document.getElementById('new-tag-name').value.trim().toLowerCase();
+  const color = document.getElementById('new-tag-color').value;
+  if (!name) return;
+  if (APP.tags.find(t=>t.name===name)) { showSystemMsg('⚠️ Ese tag ya existe.'); return; }
+  APP.tags.push({name, color});
+  document.getElementById('new-tag-name').value = '';
+  renderTagsGrid();
+  saveAll();
+  showSystemMsg(`✓ Tag "${name}" creado.`);
+}
+
+function filterByTag(name) {
+  APP.activeTagFilter = APP.activeTagFilter === name ? null : name;
+  renderTagsGrid();
+  // Highlight nodes
+  for (const n of APP.nodes) {
+    if (!APP.activeTagFilter || n.userData.tag === APP.activeTagFilter || n.userData.isSystem) {
+      n.material.opacity = 0.88;
+      n.material.emissiveIntensity = 0.35;
+    } else {
+      n.material.opacity = 0.12;
+      n.material.emissiveIntensity = 0.05;
+    }
+  }
+  renderMemoryList();
+}
+
+// ═══════════════════════════════════════════════════
+//  MEMORIA — TEXTO
+// ═══════════════════════════════════════════════════
+function addMemory() {
+  const text = document.getElementById('memory-text').value.trim();
+  const tag  = document.getElementById('active-tag-select').value || 'general';
+  if (!text) { flashEl('memory-text'); return; }
+
+  const memory = buildMemoryObj('text', text, tag, text.substring(0,70)+(text.length>70?'...':''));
+  pushMemory(memory);
+  document.getElementById('memory-text').value = '';
+}
+
+function buildMemoryObj(type, content, tag, preview) {
+  return {
+    id:      Date.now() + Math.random(),
+    type, content, tag, preview,
+    label:   tag.toUpperCase(),
+    date:    new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}),
+  };
+}
+
+function pushMemory(memory) {
+  APP.memories.push(memory);
+  const node = createNode({...memory});
+  APP.nodes.push(node);
+  APP.scene.add(node);
+  animateNodeIn(node);
+  autoConnectNodes();
+  renderMemoryList();
+  saveAll();
+  showSystemMsg(`✓ "${memory.preview.substring(0,40)}..." grabado en la red`);
+}
+
+function animateNodeIn(node) {
+  node.scale.setScalar(0);
+  let s=0;
+  const id = setInterval(()=>{ s+=0.1; node.scale.setScalar(Math.min(1,s)); if(s>=1)clearInterval(id); },16);
+}
+
+// ─── FILES ───
+document.getElementById('file-input').addEventListener('change',function(e){
+  for(const f of e.target.files) processFile(f); this.value='';
+});
+const uz = document.getElementById('upload-zone');
+uz.addEventListener('dragover', e=>{e.preventDefault();uz.classList.add('drag-over');});
+uz.addEventListener('dragleave', ()=>uz.classList.remove('drag-over'));
+uz.addEventListener('drop', e=>{e.preventDefault();uz.classList.remove('drag-over');for(const f of e.dataTransfer.files)processFile(f);});
+
+function processFile(file) {
+  const name = file.name.toLowerCase();
+  const tag  = document.getElementById('active-tag-select').value || 'general';
+
+  // — IMAGEN —
+  if (file.type.startsWith('image/')) {
+    const memory = buildMemoryObj('image', `Imagen: ${file.name}`, tag, `🖼️ ${file.name}`);
+    memory.label = file.name.substring(0,20);
+    memory.fileName = file.name;
+    const r = new FileReader();
+    r.onload = ev => { memory.imageData = ev.target.result.substring(0,51200); pushMemory(memory); };
+    r.readAsDataURL(file);
+    return;
+  }
+
+  // — AUDIO —
+  if (file.type.startsWith('audio/')) {
+    const memory = buildMemoryObj('audio', `Audio: ${file.name} (${(file.size/1024).toFixed(1)} KB)`, tag, `🎵 ${file.name}`);
+    memory.label = file.name.substring(0,20); memory.fileName = file.name;
+    pushMemory(memory); return;
+  }
+
+  // — VIDEO —
+  if (file.type.startsWith('video/')) {
+    const memory = buildMemoryObj('video', `Video: ${file.name} (${(file.size/1024).toFixed(1)} KB)`, tag, `🎬 ${file.name}`);
+    memory.label = file.name.substring(0,20); memory.fileName = file.name;
+    pushMemory(memory); return;
+  }
+
+  // — TXT / MD / CSV / JSON — leer contenido completo
+  if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.csv') || name.endsWith('.json')) {
+    const r = new FileReader();
+    r.onload = ev => {
+      const content = ev.target.result.substring(0, 6000);
+      const preview = content.substring(0,80).replace(/\n/g,' ') + (content.length>80?'...':'');
+      const memory = buildMemoryObj('file', `📄 ${file.name}\n\n${content}`, tag, `📄 ${file.name}: ${preview}`);
+      memory.label = file.name.substring(0,20); memory.fileName = file.name;
+      pushMemory(memory);
+      showSystemMsg(`✓ Contenido leído: ${file.name} (${content.length} chars)`);
+    };
+    r.readAsText(file);
+    return;
+  }
+
+  // — PDF — extraer texto con FileReader (texto embebido)
+  if (name.endsWith('.pdf')) {
+    showSystemMsg(`⟳ Leyendo PDF: ${file.name}...`);
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const raw = ev.target.result;
+        // Extraer texto legible del PDF (texto embebido en streams)
+        const matches = raw.match(/\(([^\)]{2,200})\)/g) || [];
+        const extracted = matches
+          .map(m => m.slice(1,-1).replace(/\\n/g,' ').replace(/\\/g,'').trim())
+          .filter(t => t.length > 3 && /[a-záéíóúñüA-Z]/.test(t))
+          .join(' ')
+          .substring(0, 5000);
+        const preview = extracted.substring(0,80) + (extracted.length>80?'...':'');
+        const content = extracted.length > 30
+          ? `📋 PDF: ${file.name}\n\n${extracted}`
+          : `📋 PDF: ${file.name} (${(file.size/1024).toFixed(1)} KB) — PDF escaneado o protegido, sin texto extraíble.`;
+        const memory = buildMemoryObj('file', content, tag, `📋 ${file.name}: ${preview||'PDF guardado'}`);
+        memory.label = file.name.substring(0,20); memory.fileName = file.name;
+        pushMemory(memory);
+        showSystemMsg(extracted.length>30 ? `✓ PDF leído: ${extracted.length} chars extraídos` : `⚠️ PDF sin texto legible, guardado como referencia`);
+      } catch(e) {
+        const memory = buildMemoryObj('file', `📋 PDF: ${file.name} (${(file.size/1024).toFixed(1)} KB)`, tag, `📋 ${file.name}`);
+        memory.label = file.name.substring(0,20); memory.fileName = file.name;
+        pushMemory(memory);
+      }
+    };
+    r.readAsBinaryString(file);
+    return;
+  }
+
+  // — ZIP — listar contenido
+  if (name.endsWith('.zip')) {
+    showSystemMsg(`⟳ Leyendo ZIP: ${file.name}...`);
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const bytes = new Uint8Array(ev.target.result);
+        const fileList = [];
+        let i = 0;
+        while (i < bytes.length - 4) {
+          // Firma de entrada local ZIP: PK\x03\x04
+          if (bytes[i]===0x50 && bytes[i+1]===0x4B && bytes[i+2]===0x03 && bytes[i+3]===0x04) {
+            const fnLen = bytes[i+26] | (bytes[i+27]<<8);
+            const extraLen = bytes[i+28] | (bytes[i+29]<<8);
+            const fnBytes = bytes.slice(i+30, i+30+fnLen);
+            const fname = String.fromCharCode(...fnBytes).replace(/[^\x20-\x7E]/g,'?');
+            if (fname && !fname.endsWith('/')) fileList.push(fname);
+            const compSize = bytes[i+18] | (bytes[i+19]<<8) | (bytes[i+20]<<16) | (bytes[i+21]<<24);
+            i += 30 + fnLen + extraLen + (compSize > 0 ? compSize : 0);
+          } else { i++; }
+          if (fileList.length >= 50) break;
+        }
+        const listStr = fileList.length > 0
+          ? fileList.join('\n')
+          : 'No se pudieron listar los archivos.';
+        const content = `📦 ZIP: ${file.name} (${(file.size/1024).toFixed(1)} KB)\n\nARCHIVOS DENTRO:\n${listStr}`;
+        const memory = buildMemoryObj('file', content, tag, `📦 ${file.name}: ${fileList.length} archivos`);
+        memory.label = file.name.substring(0,20); memory.fileName = file.name;
+        pushMemory(memory);
+        showSystemMsg(`✓ ZIP leído: ${fileList.length} archivos encontrados`);
+      } catch(e) {
+        const memory = buildMemoryObj('file', `📦 ZIP: ${file.name} (${(file.size/1024).toFixed(1)} KB)`, tag, `📦 ${file.name}`);
+        memory.label = file.name.substring(0,20); memory.fileName = file.name;
+        pushMemory(memory);
+      }
+    };
+    r.readAsArrayBuffer(file);
+    return;
+  }
+
+  // — CUALQUIER OTRO ARCHIVO —
+  const memory = buildMemoryObj('file', `📎 ${file.name} (${(file.size/1024).toFixed(1)} KB)`, tag, `📎 ${file.name}`);
+  memory.label = file.name.substring(0,20); memory.fileName = file.name;
+  pushMemory(memory);
+}
+
+// ─── RENDER LIST ───
+function renderMemoryList() {
+  const list = document.getElementById('memory-list');
+  let mems = APP.activeTagFilter
+    ? APP.memories.filter(m => m.tag === APP.activeTagFilter)
+    : APP.memories;
+
+  if (mems.length === 0) {
+    list.innerHTML = `<div class="message system" style="font-size:0.58rem;padding:8px;max-width:100%;">${APP.activeTagFilter?'Sin memorias con tag "'+APP.activeTagFilter+'"':'Red vacía. Graba tu primer recuerdo ↑'}</div>`;
+    document.getElementById('mem-count').textContent = `(0)`;
+    return;
+  }
+
+  document.getElementById('mem-count').textContent = `(${mems.length})`;
+  list.innerHTML = [...mems].reverse().map(m => {
+    const c = getTagColor(m.tag) || TYPE_COLORS[m.type] || '#4a5a8a';
+    return `<div class="memory-node-item" id="mni-${m.id}" onclick="focusNode(${m.id})">
+      <div class="memory-dot" style="background:${c};box-shadow:0 0 5px ${c}"></div>
+      <div class="memory-content">
+        ${escHtml(m.preview)}
+        <div class="memory-meta">${m.date}</div>
+        <span class="memory-tag-badge" style="color:${c};border-color:${c}40;background:${c}14">${m.tag}</span>
+      </div>
+      <button class="btn-del-mem" onclick="deleteMemory(${m.id},event)">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteMemory(id, e) {
+  e.stopPropagation();
+  APP.memories = APP.memories.filter(m=>m.id!=id);
+  const idx = APP.nodes.findIndex(n=>n.userData.id==id);
+  if (idx!==-1) { APP.scene.remove(APP.nodes[idx]); APP.nodes.splice(idx,1); }
+  APP.customConnections = APP.customConnections.filter(c=>c.from!=id&&c.to!=id);
+  updateConnections(); renderMemoryList(); saveAll();
+}
+
+// ═══════════════════════════════════════════════════
+//  VOZ — TRANSCRIPCIÓN
+// ═══════════════════════════════════════════════════
+let recognition = null;
+let isRecording = false;
+
+function toggleMic() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    showSystemMsg('⚠️ Tu navegador no soporta grabación de voz. Usa Chrome.'); return;
+  }
+  if (isRecording) { recognition.stop(); return; }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'es-MX';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('mic-btn').classList.add('recording');
+    document.getElementById('mic-btn').textContent = '⏹ DETENER';
+    document.getElementById('mic-status').style.display = 'block';
+  };
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('memory-text').value = transcript;
+    showSystemMsg(`🎤 Transcrito: "${transcript.substring(0,50)}..."`);
+  };
+  recognition.onend = () => {
+    isRecording = false;
+    document.getElementById('mic-btn').classList.remove('recording');
+    document.getElementById('mic-btn').textContent = '🎤 GRABAR VOZ';
+    document.getElementById('mic-status').style.display = 'none';
+  };
+  recognition.onerror = (e) => {
+    showSystemMsg(`⚠️ Error de micrófono: ${e.error}`);
+    recognition.stop();
+  };
+  recognition.start();
+}
+
+// ═══════════════════════════════════════════════════
+//  LEER URLs
+// ═══════════════════════════════════════════════════
+async function fetchURL() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url || !url.startsWith('http')) { showSystemMsg('⚠️ Escribe una URL válida (debe empezar con http)'); return; }
+  if (!APP.apiConnected) { showSystemMsg('⚠️ Conecta tu API Key de Groq primero para leer URLs.'); return; }
+
+  document.getElementById('url-status').style.display = 'block';
+  document.getElementById('url-status').textContent = '⟳ Leyendo URL...';
+  showSystemMsg(`⟳ Procesando: ${url.substring(0,50)}...`);
+
+  // Intentar con múltiples proxies CORS en orden
+  const proxies = [
+    u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  ];
+
+  let rawText = '';
+  for (let i = 0; i < proxies.length; i++) {
+    try {
+      document.getElementById('url-status').textContent = `⟳ Intentando proxy ${i+1}/3...`;
+      const res = await fetch(proxies[i](url), {signal: AbortSignal.timeout(8000)});
+      let body = '';
+      if (i === 0) { const j = await res.json(); body = j.contents || ''; }
+      else { body = await res.text(); }
+      const tmp = document.createElement('div');
+      tmp.innerHTML = body;
+      tmp.querySelectorAll('script,style,nav,footer,header,aside').forEach(el=>el.remove());
+      rawText = (tmp.innerText || tmp.textContent || '').replace(/\s+/g,' ').trim().substring(0,5000);
+      if (rawText && rawText.length >= 50) break;
+    } catch(e) { rawText = ''; }
+  }
+
+  if (!rawText || rawText.length < 50) {
+    document.getElementById('url-status').style.display = 'none';
+    showSystemMsg('⚠️ No se pudo leer el link. Algunos sitios bloquean acceso externo.');
+    return;
+  }
+
+  try {
+    document.getElementById('url-status').textContent = '⟳ Resumiendo con IA...';
+    const summary = await askGroq(
+      `Tienes el contenido de esta URL: ${url}\n\nCONTENIDO:\n${rawText}\n\nHaz un resumen claro y conciso en español (máx 300 palabras) que capture las ideas principales. Solo el resumen, sin introducción.`
+    );
+
+    const tag = document.getElementById('active-tag-select').value || 'general';
+    const memory = buildMemoryObj('url', `[URL] ${url}\n\n${summary}`, tag, `🔗 ${new URL(url).hostname}: ${summary.substring(0,60)}...`);
+    memory.label = new URL(url).hostname;
+    memory.sourceUrl = url;
+    pushMemory(memory);
+
+    document.getElementById('url-input').value = '';
+    document.getElementById('url-status').style.display = 'none';
+    showSystemMsg(`✓ URL guardada: ${new URL(url).hostname}`);
+  } catch(err) {
+    document.getElementById('url-status').style.display = 'none';
+    showSystemMsg(`⚠️ Error al resumir URL: ${err.message}`);
+  }
+}
+
+async function askGroq(prompt) {
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${APP.apiKey}`},
+    body: JSON.stringify({
+      model:'llama-3.3-70b-versatile',
+      messages:[{role:'user',content:prompt}],
+      max_tokens:600, temperature:0.4,
+    }),
+  });
+  if (!res.ok) throw new Error('Groq API error');
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+// ═══════════════════════════════════════════════════
+//  BÚSQUEDA
+// ═══════════════════════════════════════════════════
+function searchMemories(query) {
+  const raw = query.toLowerCase().trim();
+
+  // Clear highlights
+  document.querySelectorAll('.memory-node-item').forEach(el=>el.classList.remove('highlighted'));
+  for (const n of APP.nodes) { n.material.opacity=0.88; }
+
+  const results = document.getElementById('search-results');
+  updateSearchSuggestions(raw);
+  if (!raw) { results.textContent=''; renderMemoryList(); return; }
+
+  // Búsqueda por palabras clave: todas las palabras deben coincidir
+  const keywords = raw.split(/\s+/).filter(k=>k.length>0);
+  const found = APP.memories.filter(m => {
+    const haystack = [m.content, m.preview, m.tag, m.label, m.sourceUrl].join(' ').toLowerCase();
+    return keywords.every(k => haystack.includes(k));
+  });
+
+  results.textContent = `${found.length} resultado(s) para: ${keywords.map(k=>'"'+k+'"').join(' + ')}`;
+
+  // Highlight in 3D
+  for (const n of APP.nodes) {
+    const match = found.find(m => m.id == n.userData.id);
+    if (match) {
+      n.material.emissiveIntensity = 2.5;
+      n.material.opacity = 1;
+    } else if (!n.userData.isSystem) {
+      n.material.opacity = 0.15;
+    }
+  }
+
+  // Highlight in list
+  renderMemoryList();
+  setTimeout(()=>{
+    for (const m of found) {
+      const el = document.getElementById(`mni-${m.id}`);
+      if (el) el.classList.add('highlighted');
+    }
+  },50);
+}
+
+function updateSearchSuggestions(q) {
+  const box = document.getElementById('search-suggestions');
+  if (!box) return;
+  if (!q || q.length < 1) { box.style.display='none'; box.innerHTML=''; return; }
+  // Extraer palabras únicas de todas las memorias
+  const allWords = new Set();
+  for (const m of APP.memories) {
+    const words = [m.tag, m.label, m.preview].join(' ').toLowerCase()
+      .replace(/[^\wáéíóúñü\s]/gi,' ').split(/\s+/).filter(w=>w.length>3);
+    words.forEach(w=>allWords.add(w));
+  }
+  const last = q.split(/\s+/).pop();
+  if (!last) { box.style.display='none'; return; }
+  const matches = [...allWords].filter(w=>w.startsWith(last) && w!==last).slice(0,5);
+  if (!matches.length) { box.style.display='none'; return; }
+  box.innerHTML = matches.map(w=>`<span class="search-suggest-pill" onclick="applySuggestion('${w}')">${w}</span>`).join('');
+  box.style.display='flex';
+}
+
+function applySuggestion(word) {
+  const inp = document.getElementById('search-input');
+  const parts = inp.value.split(/\s+/);
+  parts[parts.length-1] = word;
+  inp.value = parts.join(' ') + ' ';
+  inp.focus();
+  searchMemories(inp.value);
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-results').textContent = '';
+  const box = document.getElementById('search-suggestions');
+  if (box) { box.style.display='none'; box.innerHTML=''; }
+  for (const n of APP.nodes) { n.material.opacity=0.88; n.material.emissiveIntensity=0.35; }
+  renderMemoryList();
+}
+
+// ═══════════════════════════════════════════════════
+//  JOURNAL DIARIO
+// ═══════════════════════════════════════════════════
+function openJournal() {
+  document.getElementById('journal-date').textContent =
+    new Date().toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('journal-text').value = '';
+  document.getElementById('journal-modal').classList.add('open');
+}
+
+function closeJournal() {
+  document.getElementById('journal-modal').classList.remove('open');
+}
+
+function saveJournal() {
+  const text = document.getElementById('journal-text').value.trim();
+  if (!text) { closeJournal(); return; }
+  const memory = buildMemoryObj(
+    'journal',
+    `📓 DIARIO ${new Date().toLocaleDateString('es-MX')}: ${text}`,
+    'general',
+    `📓 ${text.substring(0,70)}${text.length>70?'...':''}`
+  );
+  memory.label = '📓 DIARIO';
+  pushMemory(memory);
+  closeJournal();
+}
+
+// Verificar si hay journal del día
+function checkDailyJournal() {
+  const today = new Date().toDateString();
+  const lastJournal = localStorage.getItem('neural_last_journal');
+  if (lastJournal !== today && APP.memories.length >= 0) {
+    localStorage.setItem('neural_last_journal', today);
+    setTimeout(() => openJournal(), 1500);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  RESUMEN SEMANAL IA
+// ═══════════════════════════════════════════════════
+async function generateSummary() {
+  if (!APP.apiConnected) { showSystemMsg('⚠️ Conecta tu API Key de Groq primero.'); return; }
+  if (APP.memories.length === 0) { showSystemMsg('⚠️ No hay memorias para analizar.'); return; }
+
+  document.getElementById('summary-modal').classList.add('open');
+  document.getElementById('summary-content').textContent = '⟳ Analizando tu mente, Faiiryz...';
+
+  const weekAgo = Date.now() - 7*24*60*60*1000;
+  const recentMems = APP.memories.slice(-40); // últimas 40
+
+  const memText = recentMems.map((m,i)=>`[${i+1}] (${m.tag}, ${m.date}): ${m.content.substring(0,200)}`).join('\n');
+
+  try {
+    const summary = await askGroq(`
+Eres el analizador del cerebro digital de Faiiryz.
+${FAIIRYZ_IDENTITY}
+
+MEMORIAS RECIENTES A ANALIZAR:
+${memText}
+
+Genera un RESUMEN SEMANAL profundo que incluya:
+1. 🧠 PATRONES MENTALES: ¿Qué temas o ideas se repiten más?
+2. 📈 PROGRESO: ¿En qué está avanzando Faiiryz?
+3. 💡 INSIGHTS: 2-3 conexiones inesperadas entre memorias
+4. ⚡ ENERGÍA: ¿Qué lo motiva más según sus notas?
+5. 🎯 RECOMENDACIÓN: Una acción concreta para esta semana
+
+Sé específico, usa sus propias palabras y memorias reales. Tono directo, como su alter-ego más analítico.`);
+
+    document.getElementById('summary-content').textContent = summary;
+  } catch(err) {
+    document.getElementById('summary-content').textContent = `⚠️ Error: ${err.message}`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  GROQ AI CHAT
+// ═══════════════════════════════════════════════════
+function connectAPI() {
+  const key = document.getElementById('groq-api-key').value.trim();
+  if (!key || !key.startsWith('gsk_')) { showSystemMsg('⚠️ API Key inválida. Debe comenzar con gsk_'); return; }
+  APP.apiKey = key;
+  APP.apiConnected = true;
+  document.getElementById('api-status').classList.add('connected');
+  document.getElementById('stat-active').textContent = 'ONLINE';
+  document.getElementById('stat-active').style.color = 'var(--neural-green)';
+  document.getElementById('send-btn').disabled = false;
+  localStorage.setItem('neural_mind_apikey', btoa(key));
+  showSystemMsg('✓ Cerebro de Faiiryz conectado y listo.');
+}
+
+function buildSystemPrompt() {
+  const persona = document.getElementById('persona-select').value;
+  const mems = APP.memories.map((m,i)=>`[${i+1}](${m.tag},${m.date}): ${m.content.substring(0,300)}`).join('\n');
+  const personas = {
+    yo:        `Eres el cerebro digital de Faiiryz. Responde COMO ÉL, en primera persona, usando sus memorias como base. Habla con su voz: directo, ambicioso, creativo, auténtico.`,
+    analitico: `Eres el lado analítico de Faiiryz. Analiza con lógica y datos, usando sus memorias como evidencia.`,
+    creativo:  `Eres la mente creativa de Faiiryz. Conecta ideas de forma inesperada, inspírate en sus memorias.`,
+    consejero: `Eres el consejero interno de Faiiryz. Conoces toda su historia. Da consejos sabios, empáticos y personalizados.`,
+  };
+  return `${personas[persona]}\n\n${FAIIRYZ_IDENTITY}\n\nMEMORIAS ALMACENADAS:\n${mems||'(sin memorias aún)'}\n\nINSTRUCCIONES:\n- Usa memorias relevantes cuando corresponda\n- Habla en español, natural y directo\n- Respuestas concisas pero profundas\n- Si es relevante, menciona que "recuerdas" algo específico de las memorias`;
+}
+
+let chatHistory = [];
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const text  = input.value.trim();
+  if (!text || !APP.apiConnected) return;
+  input.value = ''; input.style.height='auto';
+
+  addChatMsg('user', text);
+  const thinkEl = makeThinking();
+  pulseAll();
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${APP.apiKey}`},
+      body:JSON.stringify({
+        model:'llama-3.3-70b-versatile',
+        messages:[
+          {role:'system',content:buildSystemPrompt()},
+          ...chatHistory.slice(-8),
+          {role:'user',content:text},
+        ],
+        max_tokens:900, temperature:0.82,
+      }),
+    });
+    thinkEl.remove();
+    if (!res.ok) { const e=await res.json(); throw new Error(e.error?.message||'Error API'); }
+    const data  = await res.json();
+    const reply = data.choices[0].message.content;
+    addChatMsg('ai', reply);
+    saveAll();
+  } catch(err) {
+    thinkEl.remove();
+    addChatMsg('ai', `⚠️ ${err.message}`);
+  }
+}
+
+function makeThinking() {
+  const el = document.createElement('div');
+  el.className = 'thinking';
+  el.innerHTML = '<div class="thinking-dot"></div><div class="thinking-dot"></div><div class="thinking-dot"></div>';
+  document.getElementById('chat-messages').appendChild(el);
+  scrollChat();
+  return el;
+}
+
+function addChatMsg(role, text) {
+  const msgs = document.getElementById('chat-messages');
+  const div  = document.createElement('div');
+  div.className = `message ${role}`;
+  if (role==='user') {
+    div.innerHTML = `<div class="message-label">FAIIRYZ</div>${escHtml(text)}`;
+    chatHistory.push({role:'user',content:text});
+  } else if (role==='ai') {
+    div.innerHTML = `<div class="message-label">⬡ TU CEREBRO</div>${escHtml(text)}`;
+    chatHistory.push({role:'assistant',content:text});
+  } else { div.innerHTML=text; }
+  msgs.appendChild(div); scrollChat();
+}
+
+function showSystemMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'message system';
+  div.textContent = text;
+  document.getElementById('chat-messages').appendChild(div);
+  scrollChat();
+}
+
+function scrollChat() { const m=document.getElementById('chat-messages'); m.scrollTop=m.scrollHeight; }
+function handleChatKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+
+// ═══════════════════════════════════════════════════
+//  PERSISTENCIA localStorage
+// ═══════════════════════════════════════════════════
+const SK      = 'neural_faiiryz_v3';
+const SK_API  = 'neural_mind_apikey';
+const SK_CHAT = 'neural_faiiryz_chat_v3';
+const SK_TAGS = 'neural_faiiryz_tags_v3';
+const SK_CONN = 'neural_faiiryz_connections_v3';
+
+function saveAll() {
+  try {
+    const toSave = APP.memories.map(m=>{
+      const c={...m};
+      if(c.imageData&&c.imageData.length>51200){ c.imageData=c.imageData.substring(0,51200); c.imageDataTruncated=true; }
+      return c;
+    });
+    localStorage.setItem(SK, JSON.stringify(toSave));
+    if(APP.apiKey) localStorage.setItem(SK_API, btoa(APP.apiKey));
+    localStorage.setItem(SK_CHAT, JSON.stringify(chatHistory.slice(-40)));
+    localStorage.setItem(SK_TAGS, JSON.stringify(APP.tags));
+    localStorage.setItem(SK_CONN, JSON.stringify(APP.customConnections));
+    updateSaveInd('saved');
+  } catch(e) {
+    if(e.name==='QuotaExceededError') showSystemMsg('⚠️ Almacenamiento lleno. Exporta y limpia.');
+    updateSaveInd('error');
+  }
+}
+
+function loadAll() {
+  // Tags
+  try {
+    const rt = localStorage.getItem(SK_TAGS);
+    if(rt) APP.tags = JSON.parse(rt);
+  } catch(e){}
+  renderTagsGrid();
+
+  // Memories
+  try {
+    const raw = localStorage.getItem(SK);
+    if(raw) {
+      const saved = JSON.parse(raw);
+      APP.memories = saved;
+      for(const m of saved){ const n=createNode({...m}); APP.nodes.push(n); APP.scene.add(n); }
+      autoConnectNodes(); renderMemoryList();
+      if(saved.length>0) showSystemMsg(`✓ Red restaurada: ${saved.length} memorias de Faiiryz cargadas.`);
+    }
+  } catch(e){ console.warn(e); }
+
+  // Connections
+  try {
+    const rc = localStorage.getItem(SK_CONN);
+    if(rc) { APP.customConnections = JSON.parse(rc); updateConnections(); }
+  } catch(e){}
+
+  // API Key
+  try {
+    const rk = localStorage.getItem(SK_API);
+    if(rk) {
+      const key = atob(rk);
+      document.getElementById('groq-api-key').value = key;
+      APP.apiKey=key; APP.apiConnected=true;
+      document.getElementById('api-status').classList.add('connected');
+      document.getElementById('stat-active').textContent='ONLINE';
+      document.getElementById('stat-active').style.color='var(--neural-green)';
+      document.getElementById('send-btn').disabled=false;
+    }
+  } catch(e){}
+
+  // Chat
+  try {
+    const rc = localStorage.getItem(SK_CHAT);
+    if(rc) chatHistory=JSON.parse(rc);
+  } catch(e){}
+
+  updateSaveInd('saved');
+}
+
+function updateSaveInd(state) {
+  const el = document.getElementById('save-indicator');
+  if(!el) return;
+  if(state==='saved') { el.textContent='● GUARDADO'; el.style.color='var(--neural-green)'; }
+  else if(state==='error') { el.textContent='● ERROR'; el.style.color='var(--neural-pink)'; }
+}
+
+setInterval(saveAll, 8000);
+
+// ─── EXPORT / IMPORT / CLEAR ───
+function exportBrain() {
+  const data = {version:3, owner:'Faiiryz', exported:new Date().toISOString(),
+    memories:APP.memories, chatHistory, tags:APP.tags, customConnections:APP.customConnections};
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=`faiiryz_cerebro_${new Date().toLocaleDateString('es-MX').replace(/\//g,'-')}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  showSystemMsg('✓ Cerebro de Faiiryz exportado como JSON.');
+}
+
+function importBrain() {
+  const inp = document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const r=new FileReader();
+    r.onload=ev=>{
+      try {
+        const data=JSON.parse(ev.target.result);
+        const mems=data.memories||data;
+        let count=0;
+        for(const m of mems){ if(!APP.memories.find(x=>x.id===m.id)){ APP.memories.push(m); const n=createNode({...m}); APP.nodes.push(n); APP.scene.add(n); count++; } }
+        if(data.chatHistory) chatHistory=[...chatHistory,...data.chatHistory];
+        if(data.tags) { for(const t of data.tags){ if(!APP.tags.find(x=>x.name===t.name)) APP.tags.push(t); } renderTagsGrid(); }
+        if(data.customConnections) APP.customConnections=[...APP.customConnections,...data.customConnections];
+        updateConnections(); renderMemoryList(); saveAll();
+        showSystemMsg(`✓ ${count} memorias importadas.`);
+      } catch(err){ showSystemMsg('⚠️ Error al importar: archivo inválido.'); }
+    };
+    r.readAsText(file);
+  };
+  inp.click();
+}
+
+function clearBrain() {
+  if(!confirm('¿Borrar TODO? Esta acción no se puede deshacer.')) return;
+  APP.memories=[]; chatHistory=[]; APP.customConnections=[];
+  const toRm=APP.nodes.filter(n=>!n.userData.isSystem);
+  for(const n of toRm) APP.scene.remove(n);
+  APP.nodes=APP.nodes.filter(n=>n.userData.isSystem);
+  updateConnections(); renderMemoryList();
+  [SK,SK_CHAT,SK_CONN].forEach(k=>localStorage.removeItem(k));
+  showSystemMsg('⚠️ Red neuronal limpiada.');
+}
+
+// ─── UTILS ───
+function flashEl(id) {
+  const el=document.getElementById(id);
+  el.style.borderColor='var(--neural-pink)';
+  el.style.boxShadow='0 0 10px rgba(255,45,120,0.4)';
+  setTimeout(()=>{el.style.borderColor='';el.style.boxShadow='';},700);
+}
+function escHtml(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+
+document.getElementById('chat-input').addEventListener('input',function(){
+  this.style.height='auto';
+  this.style.height=Math.min(100,this.scrollHeight)+'px';
+});
+
+// ═══════════════════════════════════════════════════
+//  SUPABASE — CONFIGURACIÓN
+// ═══════════════════════════════════════════════════
+const SUPABASE_URL = 'https://byxodxfdedcxvknfhpwg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5eG9keGZkZWRjeHZrbmZocHdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTg1NjgsImV4cCI6MjA5MjUzNDU2OH0.M6yYuFNqvjNNYVujeTSdpaBe7FMP7244temgzNhaems';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let CURRENT_USER  = null;
+let CURRENT_THERAPIST = null;
+let AGENDA_SESSIONS = [];
+
+// ═══════════════════════════════════════════════════
+//  AUTH — LOGIN / SIGNUP
+// ═══════════════════════════════════════════════════
+let authMode = 'login';
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('tab-login-btn').classList.toggle('active', mode==='login');
+  document.getElementById('tab-signup-btn').classList.toggle('active', mode==='signup');
+  document.getElementById('auth-name').style.display  = mode==='signup' ? 'block' : 'none';
+  document.getElementById('btn-auth-submit').textContent = mode==='login' ? '⬡ INGRESAR' : '⬡ CREAR CUENTA';
+  document.getElementById('auth-err').textContent = '';
+}
+
+async function submitAuth() {
+  const email    = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value.trim();
+  const name     = document.getElementById('auth-name').value.trim();
+  const errEl    = document.getElementById('auth-err');
+  const btn      = document.getElementById('btn-auth-submit');
+
+  if (!email || !password) { errEl.textContent='Completa todos los campos.'; return; }
+  btn.textContent = '⟳ Procesando...'; btn.disabled = true;
+
+  try {
+    if (authMode === 'login') {
+      const {data, error} = await sb.auth.signInWithPassword({email, password});
+      if (error) throw error;
+      await onAuthSuccess(data.user);
+    } else {
+      const {data, error} = await sb.auth.signUp({email, password});
+      if (error) throw error;
+      if (data.user) {
+        // Create therapist profile
+        await sb.from('therapists').insert({
+          id: data.user.id,
+          name: name || email.split('@')[0],
+          clinic_name: name || 'Mi Consultorio',
+        });
+        await onAuthSuccess(data.user);
+      } else {
+        errEl.textContent = 'Revisa tu correo para confirmar tu cuenta.';
+      }
+    }
+  } catch(e) {
+    errEl.textContent = e.message || 'Error de autenticación.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = authMode==='login' ? '⬡ INGRESAR' : '⬡ CREAR CUENTA';
+  }
+}
+
+async function onAuthSuccess(user) {
+  CURRENT_USER = user;
+  document.getElementById('auth-modal').classList.add('hidden');
+  document.getElementById('user-bar').style.display = 'flex';
+
+  // Load therapist profile
+  const {data:th} = await sb.from('therapists').select('*').eq('id', user.id).single();
+  CURRENT_THERAPIST = th;
+  const displayName = th?.name || user.email?.split('@')[0] || 'Faiiryz';
+  document.getElementById('user-name-display').textContent = displayName;
+  document.getElementById('user-avatar').textContent = displayName[0].toUpperCase();
+
+  // Register service worker for PWA
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+
+  await syncFromCloud();
+}
+
+async function signOut() {
+  await sb.auth.signOut();
+  CURRENT_USER = null; CURRENT_THERAPIST = null;
+  document.getElementById('user-bar').style.display = 'none';
+  document.getElementById('auth-modal').classList.remove('hidden');
+  setCloudStatus('offline');
+}
+
+// ═══════════════════════════════════════════════════
+//  CLOUD SYNC — SUPABASE DATABASE
+// ═══════════════════════════════════════════════════
+function setCloudStatus(state) {
+  const el = document.getElementById('cloud-status');
+  if(!el) return;
+  if(state==='synced')  { el.textContent='☁ SINCRONIZADO'; el.className='synced'; }
+  else if(state==='syncing') { el.textContent='☁ SINCRONIZANDO...'; el.className='syncing'; }
+  else { el.textContent='☁ LOCAL'; el.className='offline'; }
+}
+
+// Guardar memoria en Supabase
+async function saveMemoryCloud(memory) {
+  if (!CURRENT_USER) return;
+  setCloudStatus('syncing');
+  try {
+    // Cifrado básico de contenido (base64 XOR con uid slice)
+    const key   = CURRENT_USER.id.substring(0,8);
+    const enc   = btoa(unescape(encodeURIComponent(memory.content || '')));
+    await sb.from('notes').upsert({
+      id:           memory.id.toString().replace('.','-').substring(0,36).padEnd(36,'0'),
+      therapist_id: CURRENT_USER.id,
+      patient_id:   null,
+      content:      enc,
+      preview:      memory.preview?.substring(0,200),
+      tag:          memory.tag,
+      type:         memory.type,
+      session_date: memory.date || new Date().toISOString().split('T')[0],
+    }, {onConflict:'id'});
+    setCloudStatus('synced');
+  } catch(e) {
+    console.warn('Cloud save error:', e);
+    setCloudStatus('offline');
+  }
+}
+
+// Cargar memorias desde Supabase
+async function syncFromCloud() {
+  if (!CURRENT_USER) return;
+  setCloudStatus('syncing');
+  try {
+    const {data, error} = await sb.from('notes')
+      .select('*')
+      .eq('therapist_id', CURRENT_USER.id)
+      .order('created_at', {ascending:true});
+
+    if (error) throw error;
+
+    let newCount = 0;
+    for (const row of (data || [])) {
+      const existing = APP.memories.find(m => m.cloudId === row.id);
+      if (!existing) {
+        let content = row.content || '';
+        try { content = decodeURIComponent(escape(atob(content))); } catch(e){}
+        const memory = {
+          id:      Date.now() + Math.random(),
+          cloudId: row.id,
+          type:    row.type || 'text',
+          content,
+          preview: row.preview || content.substring(0,70),
+          tag:     row.tag || 'general',
+          label:   (row.tag||'general').toUpperCase(),
+          date:    row.session_date || new Date().toLocaleDateString('es-MX'),
+        };
+        APP.memories.push(memory);
+        const node = createNode({...memory});
+        APP.nodes.push(node); APP.scene.add(node);
+        newCount++;
+      }
+    }
+
+    if (newCount > 0) {
+      autoConnectNodes(); renderMemoryList();
+      showSystemMsg(`☁ ${newCount} memorias sincronizadas desde la nube.`);
+    }
+
+    // Load sessions/agenda from cloud
+    await loadSessionsCloud();
+
+    setCloudStatus('synced');
+  } catch(e) {
+    console.warn('Sync error:', e);
+    setCloudStatus('offline');
+  }
+}
+
+// ─── Override pushMemory to also save to cloud ───
+const _origPushMemory = pushMemory;
+function pushMemory(memory) {
+  _origPushMemory(memory);
+  if (CURRENT_USER) saveMemoryCloud(memory);
+}
+
+// ─── Override deleteMemory to also delete from cloud ───
+const _origDeleteMemory = deleteMemory;
+function deleteMemory(id, e) {
+  const mem = APP.memories.find(m=>m.id==id);
+  _origDeleteMemory(id, e);
+  if (CURRENT_USER && mem?.cloudId) {
+    sb.from('notes').delete().eq('id', mem.cloudId).then(()=>{});
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  AGENDA DE SESIONES — CLOUD
+// ═══════════════════════════════════════════════════
+async function loadSessionsCloud() {
+  if(!CURRENT_USER) { loadSessionsLocal(); return; }
+  const {data} = await sb.from('sessions')
+    .select('*').eq('therapist_id', CURRENT_USER.id)
+    .order('session_date', {ascending:true});
+  AGENDA_SESSIONS = (data||[]).map(s=>({
+    id:s.id, title:s.notes||'Sesión', date:s.session_date, cloudId:s.id
+  }));
+  renderAgendaList();
+}
+
+function loadSessionsLocal() {
+  try { AGENDA_SESSIONS = JSON.parse(localStorage.getItem('neural_agenda_v3')||'[]'); } catch(e){}
+  renderAgendaList();
+}
+
+function saveSessionsLocal() {
+  localStorage.setItem('neural_agenda_v3', JSON.stringify(AGENDA_SESSIONS));
+}
+
+async function addSession() {
+  const title = document.getElementById('agenda-title').value.trim();
+  const date  = document.getElementById('agenda-date').value;
+  const notes = document.getElementById('agenda-notes').value.trim();
+  if (!title || !date) { showSystemMsg('⚠️ Completa título y fecha.'); return; }
+
+  if (CURRENT_USER) {
+    const {data, error} = await sb.from('sessions').insert({
+      therapist_id: CURRENT_USER.id,
+      patient_id:   null,
+      session_date: date.split('T')[0],
+      notes:        `${title}${notes?' | '+notes:''}`,
+    }).select().single();
+    if (!error && data) {
+      AGENDA_SESSIONS.push({id:data.id, title, date, notes, cloudId:data.id});
+    }
+  } else {
+    const session = {id: Date.now().toString(), title, date, notes};
+    AGENDA_SESSIONS.push(session);
+    saveSessionsLocal();
+  }
+
+  document.getElementById('agenda-title').value = '';
+  document.getElementById('agenda-date').value  = '';
+  document.getElementById('agenda-notes').value = '';
+  renderAgendaList();
+  showSystemMsg(`✓ Sesión agendada: "${title}"`);
+}
+
+async function deleteSession(id) {
+  AGENDA_SESSIONS = AGENDA_SESSIONS.filter(s=>s.id!=id);
+  renderAgendaList();
+  saveSessionsLocal();
+  if (CURRENT_USER) await sb.from('sessions').delete().eq('id',id);
+}
+
+function openAgenda() {
+  document.getElementById('agenda-modal').classList.add('open');
+  renderAgendaList();
+  // Set default datetime to now +1hr
+  const d = new Date(Date.now()+3600000);
+  document.getElementById('agenda-date').value = d.toISOString().slice(0,16);
+}
+
+function renderAgendaList() {
+  const list = document.getElementById('agenda-list');
+  if (!list) return;
+  const upcoming = AGENDA_SESSIONS
+    .sort((a,b) => new Date(a.date) - new Date(b.date))
+    .filter(s => new Date(s.date) >= new Date(Date.now()-86400000));
+
+  if (upcoming.length === 0) {
+    list.innerHTML = '<div style="font-size:0.65rem;color:var(--text-dim);text-align:center;padding:12px;">Sin sesiones agendadas.</div>';
+    return;
+  }
+  list.innerHTML = upcoming.map(s => {
+    const d = new Date(s.date);
+    const fmt = isNaN(d) ? s.date : d.toLocaleDateString('es-MX',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return `<div class="agenda-item">
+      <span class="agenda-date-badge">${fmt}</span>
+      <span style="flex:1">${escHtml(s.title)}${s.notes?`<br><span style="font-size:0.6rem;color:var(--text-dim)">${escHtml(s.notes)}</span>`:''}
+      </span>
+      <button class="btn-del-agenda" onclick="deleteSession('${s.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  TIMELINE
+// ═══════════════════════════════════════════════════
+function openTimeline() {
+  document.getElementById('timeline-modal').classList.add('open');
+  renderTimeline();
+}
+
+function renderTimeline() {
+  const list = document.getElementById('timeline-list');
+  if (!list) return;
+  if (APP.memories.length === 0) {
+    list.innerHTML = '<div style="font-size:0.65rem;color:var(--text-dim);padding:16px 0;">Sin memorias aún.</div>';
+    return;
+  }
+  const sorted = [...APP.memories].sort((a,b) => {
+    const da = new Date(a.date||0); const db = new Date(b.date||0);
+    return da - db;
+  });
+  list.innerHTML = sorted.map(m => {
+    const c = getTagColor(m.tag) || TYPE_COLORS[m.type] || '#4a5a8a';
+    const icon = {text:'📝',image:'🖼',audio:'🎤',video:'🎬',file:'📎',url:'🔗',journal:'📓'}[m.type]||'⬡';
+    return `<div class="timeline-item">
+      <div class="timeline-dot" style="background:${c}"></div>
+      <div class="timeline-date">${m.date||'—'}</div>
+      <div class="timeline-body">
+        <span class="timeline-tag" style="color:${c};border-color:${c}40;background:${c}14">${icon} ${m.tag||'general'}</span>
+        <div class="timeline-text">${escHtml(m.preview||m.content?.substring(0,100)||'')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  AI ALERTAS DE PATRONES
+// ═══════════════════════════════════════════════════
+async function openAlerts() {
+  document.getElementById('alerts-modal').classList.add('open');
+  const content = document.getElementById('alerts-content');
+  content.innerHTML = '<div style="color:var(--text-dim);">⟳ Analizando patrones en tu red neuronal...</div>';
+
+  if (!APP.apiConnected) {
+    content.innerHTML = '<div class="alert-item">⚠️ Conecta tu API de Groq primero para generar alertas inteligentes.</div>';
+    return;
+  }
+  if (APP.memories.length < 3) {
+    content.innerHTML = '<div class="alert-item">Necesitas al menos 3 memorias para detectar patrones.</div>';
+    return;
+  }
+
+  const memText = APP.memories.slice(-30).map((m,i)=>`[${i+1}](${m.tag},${m.date}): ${m.content?.substring(0,200)}`).join('\n');
+  try {
+    const resp = await askGroq(`
+Eres el analizador de patrones del cerebro digital de Faiiryz.
+${FAIIRYZ_IDENTITY}
+
+MEMORIAS RECIENTES:
+${memText}
+
+Detecta y reporta patrones importantes. Responde SOLO con un JSON con este formato exacto:
+{
+  "alerts": [
+    {"type":"warning","icon":"⚠️","text":"descripción del patrón preocupante"},
+    {"type":"positive","icon":"✅","text":"algo positivo detectado"},
+    {"type":"info","icon":"💡","text":"insight o conexión interesante"}
+  ]
+}
+Genera entre 3 y 6 alertas reales basadas en las memorias. Solo JSON, sin markdown.`);
+
+    let parsed;
+    try {
+      const clean = resp.replace(/```json|```/g,'').trim();
+      parsed = JSON.parse(clean);
+    } catch(e) {
+      content.innerHTML = `<div class="alert-item">${escHtml(resp)}</div>`; return;
+    }
+
+    content.innerHTML = (parsed.alerts||[]).map(a => {
+      const cls = a.type==='warning'?'critical':a.type==='positive'?'positive':'';
+      return `<div class="alert-item ${cls}"><span class="alert-icon">${a.icon||'⬡'}</span>${escHtml(a.text)}</div>`;
+    }).join('');
+
+  } catch(e) {
+    content.innerHTML = `<div class="alert-item critical">⚠️ Error: ${e.message}</div>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  COMPARATIVA DE PROGRESO
+// ═══════════════════════════════════════════════════
+async function openProgress() {
+  document.getElementById('progress-modal').classList.add('open');
+  renderProgressChart();
+  if (APP.apiConnected && APP.memories.length >= 3) {
+    document.getElementById('progress-ai').textContent = '⟳ Generando análisis IA...';
+    try {
+      const snap = getProgressSnapshot();
+      const ai = await askGroq(`
+Eres el analizador de progreso del cerebro de Faiiryz.
+DATOS DE ACTIVIDAD:
+${JSON.stringify(snap, null, 2)}
+
+En 3 oraciones, explica el progreso de Faiiryz, qué semana fue más activa y qué tema domina su mente. Directo y motivador.`);
+      document.getElementById('progress-ai').textContent = ai;
+    } catch(e) { document.getElementById('progress-ai').textContent = ''; }
+  }
+}
+
+function getProgressSnapshot() {
+  const weeks = {};
+  const tags  = {};
+  for (const m of APP.memories) {
+    const w = m.date ? m.date.substring(0,7) : 'sin fecha';
+    weeks[w] = (weeks[w]||0) + 1;
+    tags[m.tag||'general'] = (tags[m.tag||'general']||0) + 1;
+  }
+  return {total:APP.memories.length, byMonth:weeks, byTag:tags};
+}
+
+function renderProgressChart() {
+  const chart = document.getElementById('progress-chart');
+  if (!chart) return;
+  const snap = getProgressSnapshot();
+
+  const tagEntries = Object.entries(snap.byTag).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxVal = Math.max(...tagEntries.map(e=>e[1]), 1);
+
+  chart.innerHTML = `
+    <div style="font-size:0.65rem;color:var(--text-dim);margin-bottom:6px;">MEMORIAS POR TAG</div>
+    ${tagEntries.map(([tag,count]) => {
+      const c = getTagColor(tag) || '#00d4ff';
+      const pct = Math.round((count/maxVal)*100);
+      return `<div class="progress-row">
+        <div class="progress-label">${tag}</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${c}88,${c})"></div>
+        </div>
+        <div class="progress-val">${count}</div>
+      </div>`;
+    }).join('')}
+    <div style="font-size:0.65rem;color:var(--text-dim);margin:10px 0 6px;">ACTIVIDAD MENSUAL</div>
+    ${Object.entries(snap.byMonth).sort().slice(-6).map(([month,count]) => {
+      const pct = Math.round((count/maxVal)*100);
+      return `<div class="progress-row">
+        <div class="progress-label">${month}</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" style="width:${pct}%;background:linear-gradient(90deg,rgba(123,47,255,0.6),rgba(0,212,255,0.8))"></div>
+        </div>
+        <div class="progress-val">${count}</div>
+      </div>`;
+    }).join('')}
+    <div style="font-size:0.75rem;color:var(--neural-green);margin-top:10px;text-align:center;">
+      Total: ${snap.total} memorias en ${Object.keys(snap.byTag).length} categorías
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════
+//  MODO PRESENTACIÓN
+// ═══════════════════════════════════════════════════
+function togglePresentationMode() {
+  document.body.classList.toggle('presentation-mode');
+  const isPresenting = document.body.classList.contains('presentation-mode');
+  if (isPresenting) {
+    APP.autoRotate = true;
+    document.getElementById('btn-rotate').classList.add('active');
+    showSystemMsg('◉ Modo presentación activo. La red rota automáticamente.');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT SUPABASE — CHECK SESSION ON LOAD
+// ═══════════════════════════════════════════════════
+async function initSupabase() {
+  const {data: {session}} = await sb.auth.getSession();
+  if (session?.user) {
+    await onAuthSuccess(session.user);
+  }
+  // Listen for auth changes
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      await onAuthSuccess(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      CURRENT_USER = null;
+    }
+  });
+}
+
+// ── Override INIT to add Supabase ──
+const _origInit = initScene;
+// Hook into runLoading chain
+const _origRunLoading = runLoading;
+async function runLoading() {
+  await _origRunLoading();
+  await initSupabase();
+}
+
+// ── PWA: Register service worker ──
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+// ══════════════════════════════════════
+// END OF SUPABASE + NEW FEATURES BLOCK
+// ══════════════════════════════════════
+function toggleLeftPanel() {
+  const panel = document.getElementById('left-panel');
+  const btn   = document.getElementById('toggle-left');
+  const hidden = panel.classList.toggle('hidden');
+  btn.classList.toggle('shifted', hidden);
+  btn.textContent = hidden ? '▶' : '◀';
+}
+
+function toggleRightPanel() {
+  const panel = document.getElementById('right-panel');
+  const btn   = document.getElementById('toggle-right');
+  const hidden = panel.classList.toggle('hidden');
+  btn.classList.toggle('shifted', hidden);
+  btn.textContent = hidden ? '◀' : '▶';
+}
+
+function toggleBottomControls() {
+  const ctrl   = document.getElementById('bottom-controls');
+  const btn    = document.getElementById('toggle-bottom');
+  const mobile = window.innerWidth <= 768;
+  if (mobile) {
+    const showing = ctrl.classList.toggle('force-show');
+    btn.textContent = showing ? '✕ CERRAR' : '⬡ CONTROLES';
+  } else {
+    const hidden = ctrl.classList.toggle('hidden');
+    btn.classList.toggle('visible', hidden);
+    btn.textContent = hidden ? '⬡ CONTROLES' : '⬡ CONTROLES';
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+initScene();
+runLoading().then(()=>{
+  loadAll();
+  checkDailyJournal();
+});
+  </script>
+</body>
+
+</html>
