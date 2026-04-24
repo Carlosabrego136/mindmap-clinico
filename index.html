@@ -2255,24 +2255,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 //  LOADING
 // ═══════════════════════════════════════════════════
 async function runLoading() {
-  const steps = [
-    [15,  'CARGANDO SINAPSIS...'],
-    [35,  'ACTIVANDO NEURONAS...'],
-    [55,  'CONSTRUYENDO RED 3D...'],
-    [75,  'CARGANDO IDENTIDAD FAIIRYZ...'],
-    [90,  'RESTAURANDO MEMORIAS...'],
-    [100, 'CEREBRO LISTO ⬡'],
-  ];
-  for (const [pct, txt] of steps) {
-    document.getElementById('loading-bar').style.width = pct + '%';
-    document.getElementById('loading-text').textContent = txt;
-    await sleep(320);
-  }
-  await sleep(250);
+  document.getElementById('loading-bar').style.width = '100%';
+  document.getElementById('loading-text').textContent = 'CEREBRO LISTO ⬡';
+  await sleep(60);
   const ls = document.getElementById('loading-screen');
+  ls.style.transition = 'opacity 0.25s';
   ls.style.opacity = '0';
   ls.style.pointerEvents = 'none';
-  return new Promise(r => setTimeout(r, 800));
+  return new Promise(r => setTimeout(r, 260));
 }
 
 // ═══════════════════════════════════════════════════
